@@ -53,7 +53,7 @@ async def verify(ctx, *, nick):
         if len(nick) < 33:
             embed4 = discord.Embed(description="Вас добавили на рассмотрение. Ожидайте сообщения в ЛС!", colour=discord.Colour(int('5BC1FF', 16)))
             await ctx.send(embed=embed4)
-            channel = client.get_channel(973855354242883614)
+            channel = client.get_channel(1236673315146301480)
             id_thing = ctx.author.id
             guild = client.get_guild(967091313038196796)
             member = guild.get_member(ctx.author.id)
