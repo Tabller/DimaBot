@@ -7,13 +7,18 @@ from discord.ext import commands
 from discord.utils import get
 from discord import Webhook, SyncWebhook
 import aiohttp
-import json 
+import json
+import sqlite3
 
 intents = discord.Intents.all()
 intents.message_content = True
 
 client = commands.Bot(command_prefix='!', intents=intents)
 url = os.environ['WEBHOOK_URL']
+
+games_database = sqlite3.connect('game.db')
+cursor = games_database.cursor()
+database.execute("CREATE TABLE IF NOT EXISTS games(message_content STRING, user_id INT)")
 
 @client.event
 async def on_ready():
