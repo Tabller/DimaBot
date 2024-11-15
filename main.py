@@ -2,6 +2,9 @@ import discord
 import ast
 import re
 import os
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import firestore
 from discord.enums import ButtonStyle
 from discord.ext import commands
 from discord.utils import get
@@ -16,9 +19,11 @@ intents.message_content = True
 client = commands.Bot(command_prefix='!', intents=intents)
 url = os.environ['WEBHOOK_URL']
 
-games_database = sqlite3.connect('game.db')
-cursor = games_database.cursor()
-database.execute("CREATE TABLE IF NOT EXISTS games(message_content STRING, user_id INT)")
+service_account_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+service_account_dict = json.loads(service_account_json)
+cred = credentials.Certificate(service_account_dict)
+firebase_admin.initialize_app(cred)
+db = firestore.client()
 
 @client.event
 async def on_ready():
@@ -384,4 +389,23 @@ async def get_jar_data():
     with open('moneyjar.json', 'r') as f:
         users = json.load(f)
     return users
+
+
+
+@bot.command()
+async def zapor(ctx, username):
+    # Use the 'users' collection in your Cloud Firestore database
+    user_ref = db.collection('users').document(username)
+    # Store user data in a dictionary
+    user_data = {
+        'name': username,
+        'guild': ctx.guild.id
+    }
+    # Set the user data in the document
+    user_ref.set(user_data)
+    await ctx.send(f"User {username} registered!")
+
+
+
+
 client.run(os.environ['BOT_TOKEN'])
