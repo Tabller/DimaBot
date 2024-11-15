@@ -25,15 +25,9 @@ url = os.environ['WEBHOOK_URL']
 
 
 service_account_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
-if service_account_json is None:
-    print("Переменная окружения SERVICE_ACCOUNT_JSON не установлена.")
-else:
-    try:
-        # Пробуем распарсить JSON
-        service_account_dict = json.loads(service_account_json)
-        print("JSON загружен успешно:", service_account_dict)
-    except json.JSONDecodeError as e:
-        print("Ошибка декодирования JSON:", e)
+print("new ver")
+
+service_account_dict = json.loads(service_account_json)
 
 cred = credentials.Certificate(service_account_dict)
 firebase_admin.initialize_app(cred)
