@@ -12,6 +12,10 @@ from discord import Webhook, SyncWebhook
 import aiohttp
 import json
 import sqlite3
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 intents = discord.Intents.all()
 intents.message_content = True
