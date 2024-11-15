@@ -15,7 +15,7 @@ import sqlite3
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+load_dotenv(dotenv_path='/root/DimaBot/.env')
 
 intents = discord.Intents.all()
 intents.message_content = True
