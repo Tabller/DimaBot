@@ -24,7 +24,7 @@ client = commands.Bot(command_prefix='!', intents=intents)
 url = os.environ['WEBHOOK_URL']
 
 
-service_account_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
 print("new ver")
 
 service_account_dict = json.loads(service_account_json)
