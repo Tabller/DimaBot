@@ -26,7 +26,6 @@ url = os.environ['WEBHOOK_URL']
 
 service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
 
-print(service_account_json)
 service_account_dict = json.loads(service_account_json)
 
 cred = credentials.Certificate(service_account_dict)
@@ -400,7 +399,7 @@ async def get_jar_data():
 
 
 
-@bot.command()
+@client.command()
 async def zapor(ctx, username):
     # Use the 'users' collection in your Cloud Firestore database
     user_ref = db.collection('users').document(username)
