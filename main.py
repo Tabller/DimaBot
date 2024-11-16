@@ -39,7 +39,6 @@ economy_ref = db.reference('economy')
 @client.event
 async def on_ready():
     print(f'Bot {client.user} is online.')
-    txt_load()
     try:
         synced = await client.tree.sync()
         print(f'Synced {len(synced)} interaction command(s).')
