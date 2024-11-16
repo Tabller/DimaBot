@@ -12,7 +12,7 @@ from discord.utils import get
 from discord import Webhook, SyncWebhook
 import aiohttp
 import json
-import sqlite3
+import time
 from dotenv import load_dotenv
 import os
 
