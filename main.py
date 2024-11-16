@@ -5,6 +5,7 @@ import os
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
+from firebase_admin import db
 from discord.enums import ButtonStyle
 from discord.ext import commands
 from discord.utils import get
@@ -30,7 +31,8 @@ service_account_dict = json.loads(service_account_json)
 
 cred = credentials.Certificate(service_account_dict)
 firebase_admin.initialize_app(cred)
-db = firestore.client()
+games_ref = db.reference('games')
+economy_ref = db.reference('economy)
 
 @client.event
 async def on_ready():
@@ -195,17 +197,14 @@ def writing():  # ЗАПИСЬ В СПИСОК
 @client.hybrid_command()  # ЛИСТ СПИСКА
 async def list(ctx):
     message = ''
-    global game_list
-    temporary_game_list = ()
-    keys, values = zip(*dict.items())
-    for item in values:
-        temporary_game_list = temporary_game_list + item
-    for item in temporary_game_list:
-        game_list.append(item)
-    for item in game_list:
-        message = message + str(item) + '\n'
-    await ctx.send(message)
-    game_list.clear()
+    all_games = games_ref.get()
+    if all_games:
+        for user_id, games in all_games.items():
+            for game in games.value():
+                message += f"'{game}\n"
+        await ctx.send(message)
+    else:
+        await ctx.send('Лист пуст')
 
 
 @list.error  # ОШИБКА В ЛИСТЕ
@@ -233,27 +232,29 @@ async def list_error(ctx, error):
 
 
 def update_dict(key, new_val):
-    proverka = dict.get(key)
-    if proverka == None:
-        dict[f'{key}'] = (new_val,)
+    user_data = games_ref.child(key).get()  # Get existing data for the user
+
+    if user_data is None:
+        # Create a new entry for the user
+        games_ref.child(key).set({
+            '-L' + str(int(time.time() * 1000)): new_val  # Add the new game with a timestamp
+        })
     else:
-        if len(dict.get(key)) < 3:
-            values = ()
-            for item in dict.get(key):
-                values = values + (item,)
-            game = (new_val,)
-            dict[f'{key}'] = values + game
+        # Get the current game count
+        game_count = len(user_data.keys())
+
+        # If the user has less than 3 games, add the new game
+        if game_count < 3:
+            games_ref.child(key).update({
+                '-L' + str(int(time.time() * 1000)): new_val  # Add the new game with a timestamp
+            })
         else:
-            temporary_values = []
-            values = ()
-            for item in dict.get(key):
-                temporary_values.append(item)
-            temporary_values.append(new_val)
-            temporary_values.pop(0)
-            for item in temporary_values:
-                values = values + (item,)
-            dict[f'{key}'] = values
-    writing()
+            # If the user has 3 games, remove the oldest game and add the new one
+            oldest_game_key = list(user_data.keys())[0]  # Get the key of the oldest game
+            games_ref.child(key).update({
+                oldest_game_key: None,  # Remove the oldest game
+                '-L' + str(int(time.time() * 1000)): new_val  # Add the new game with a timestamp
+            })
 
 
 def iterate(author):
@@ -278,7 +279,7 @@ async def submit(ctx, *, game):
                 result = result + '<' + item + '>'
             else:
                 result = result + item
-        update_dict(str(ctx.author.id), str(result).replace('\n', ''))
+        games_ref.child(str(ctx.author.id)).push(str(result).replace('\n', ''))
 
     display_namee = iterate(ctx.author.display_name)
     embed1 = discord.Embed(description=f'**{display_namee}** предложил игру **{str(result)}**',
@@ -292,14 +293,9 @@ async def submit(ctx, *, game):
 
 @client.hybrid_command()
 async def delete_item(ctx, *, suggestion):
-    keys, values = zip(*dict.items())
-    valuess = ()
-    result = ''
-    if str(ctx.author.id) in keys:
-        t_keys = dict.get(str(ctx.author.id))
-        t_list = []
-        for item in t_keys:
-            t_list.append(item)
+    user_data = games_ref.child(str(ctx.author.id)).get()
+    if user_data is not None:
+        t_list = user_data
         pattern = "(?P<url>https?://[^\s]+)"
         r1 = re.split(pattern, suggestion)
         r2 = re.findall(pattern, suggestion)
@@ -310,10 +306,7 @@ async def delete_item(ctx, *, suggestion):
                 result = result + item
         if result in t_list:
             t_list.pop(t_list.index(result))
-            for item in t_list:
-                valuess = valuess + (item,)
-            dict[f'{str(ctx.author.id)}'] = valuess
-            writing()
+            ref.child(str(ctx.author.id)).set(t_list)
             await ctx.send(f'Успешно удалён элемент {result}.')
         else:
             await ctx.send(f'Элемент не найден в вашем списке...')
@@ -328,14 +321,13 @@ async def delete_item_error(ctx, error):
 @client.command()
 @commands.is_owner()
 async def clear(ctx):
-    dict.clear()
-    txt_clear()
+    games_ref.delete()
     await ctx.send('Лист очищен.')
 
 @client.command()
 @commands.is_owner()
 async def getdict(ctx):
-    await ctx.send(dict)
+    await ctx.send("hello")
 
 @clear.error
 async def clear_error(ctx, error):
