@@ -174,28 +174,6 @@ async def embed(ctx, member: discord.Member = None):
         discord.ui.Button(label='Twitch Channel', style=discord.ButtonStyle.link, url='https://www.twitch.tv/mrtomit'))
     await ctx.send(embed=embed, view=view)
 
-
-def txt_clear():  # СПИСОК УДАЛЯЕТСЯ
-    f = open("gamelist.txt", "w")
-    f.close()
-
-
-def txt_load():  # СПИСОК ЗАГРУЖАЕТСЯ
-    f = open("gamelist.txt", 'r')
-    global dict
-    temporary_dict = None
-    for x in f:
-        temporary_dict = x
-    if temporary_dict != None:
-        dict = ast.literal_eval(temporary_dict)
-
-
-def writing():  # ЗАПИСЬ В СПИСОК
-    f = open('gamelist.txt', 'w')
-    f.write(str(dict))
-    f.close()
-
-
 @client.hybrid_command()  # ЛИСТ СПИСКА
 async def list(ctx):
     message = ''
