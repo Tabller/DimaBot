@@ -32,7 +32,7 @@ service_account_dict = json.loads(service_account_json)
 cred = credentials.Certificate(service_account_dict)
 firebase_admin.initialize_app(cred)
 games_ref = db.reference('games')
-economy_ref = db.reference('economy)
+economy_ref = db.reference('economy')
 
 @client.event
 async def on_ready():
