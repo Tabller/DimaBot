@@ -258,7 +258,8 @@ async def submit(ctx, *, game):
                 result = result + '<' + item + '>'
             else:
                 result = result + item
-        games_ref.child(str(ctx.author.id)).push(str(result).replace('\n', ''))
+        # games_ref.child(str(ctx.author.id)).push(str(result).replace('\n', ''))
+        update_dict(str(ctx.author.id), str(result))
 
     display_namee = iterate(ctx.author.display_name)
     embed1 = discord.Embed(description=f'**{display_namee}** предложил игру **{str(result)}**',
