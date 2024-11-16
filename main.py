@@ -186,28 +186,28 @@ async def list(ctx):
         await ctx.send('Лист пуст')
 
 
-@list.error  # ОШИБКА В ЛИСТЕ
-async def list_error(ctx, error):
-    if not len(game_list) == 0 and not isinstance(error, commands.CommandInvokeError):
-        await ctx.send(f'Лист помер по причине: {error}')
-    elif isinstance(error, commands.CommandInvokeError):
-        async def backup_plan():
-            message = ''
-            global game_list
-            temporary_game_list = ()
-            keys, values = zip(*dict.items())
-            for item in values:
-                temporary_game_list = temporary_game_list + item
-            for item in temporary_game_list:
-                game_list.append(item)
-            with open("ponos.txt", "w") as file:
-                for item in game_list:
-                    file.write(f'{str(item)}\n')
-            with open("ponos.txt", "rb") as file:
-                await ctx.send(file=discord.File(file, "ponos.txt"))
-        await backup_plan()
-    else:
-        await ctx.send('Лист пуст')
+# @list.error  # ОШИБКА В ЛИСТЕ
+# async def list_error(ctx, error):
+#    if not len(game_list) == 0 and not isinstance(error, commands.CommandInvokeError):
+#        await ctx.send(f'Лист помер по причине: {error}')
+#    elif isinstance(error, commands.CommandInvokeError):
+#        async def backup_plan():
+#            message = ''
+#            global game_list
+#            temporary_game_list = ()
+#            keys, values = zip(*dict.items())
+#            for item in values:
+#                temporary_game_list = temporary_game_list + item
+#            for item in temporary_game_list:
+#                game_list.append(item)
+#            with open("ponos.txt", "w") as file:
+#                for item in game_list:
+#                    file.write(f'{str(item)}\n')
+#            with open("ponos.txt", "rb") as file:
+#                await ctx.send(file=discord.File(file, "ponos.txt"))
+#        await backup_plan()
+#    else:
+#        await ctx.send('Лист пуст')
 
 
 def update_dict(key, new_val):
