@@ -30,7 +30,9 @@ service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
 service_account_dict = json.loads(service_account_json)
 
 cred = credentials.Certificate(service_account_dict)
-firebase_admin.initialize_app(cred)
+firebase_admin.initialize_app(cred, {
+      'databaseURL': f'{os.getenv("LINK_DATABASE"))}'
+  })
 games_ref = db.reference('games')
 economy_ref = db.reference('economy')
 
