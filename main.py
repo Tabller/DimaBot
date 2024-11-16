@@ -180,7 +180,7 @@ async def list(ctx):
     all_games = games_ref.get()
     if all_games:
         for user_id, games in all_games.items():
-            for game in games.value():
+            for game in games.values():
                 message += f"'{game}\n"
         await ctx.send(message)
     else:
