@@ -211,8 +211,9 @@ async def list(ctx):
 #        await ctx.send('Лист пуст')
 
 
-async def update_dict(key, new_val):
-    user_data = await games_ref.child(key).get()  # Await the coroutine to get the data
+def update_dict(key, new_val):
+    # Get existing data for the user (asynchronously)
+    user_data = games_ref.child(key).get()
 
     if user_data is None:
         # Create a new entry for the user
