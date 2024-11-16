@@ -1,6 +1,7 @@
 import discord
 import ast
 import re
+import asyncio
 import os
 import firebase_admin
 from firebase_admin import credentials
@@ -210,8 +211,8 @@ async def list(ctx):
 #        await ctx.send('Лист пуст')
 
 
-def update_dict(key, new_val):
-    user_data = games_ref.child(key).get()  # Get existing data for the user
+async def update_dict(key, new_val):
+    user_data = await games_ref.child(key).get()  # Await the coroutine to get the data
 
     if user_data is None:
         # Create a new entry for the user
@@ -234,7 +235,6 @@ def update_dict(key, new_val):
                 oldest_game_key: None,  # Remove the oldest game
                 '-L' + str(int(time.time() * 1000)): new_val  # Add the new game with a timestamp
             })
-
 
 def iterate(author):
     word = ''
@@ -259,7 +259,7 @@ async def submit(ctx, *, game):
             else:
                 result = result + item
         # games_ref.child(str(ctx.author.id)).push(str(result).replace('\n', ''))
-        update_dict(str(ctx.author.id), str(result))
+        await update_dict(str(ctx.author.id), str(result).replace('\n', ''))
 
     display_namee = iterate(ctx.author.display_name)
     embed1 = discord.Embed(description=f'**{display_namee}** предложил игру **{str(result)}**',
