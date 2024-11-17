@@ -210,31 +210,6 @@ async def list(ctx):
 #    else:
 #        await ctx.send('Лист пуст')
 
-def update_dict(key, new_val):
-    # Get existing data for the user (asynchronously)
-    user_data = games_ref.child(key).get()
-
-    if user_data is None:
-        # Create a new entry for the user
-        games_ref.child(key).set({
-            '-L' + str(int(time.time() * 1000)): new_val  # Add the new game with a timestamp
-        })
-    else:
-        # Get the current game count
-        game_count = len(user_data.keys())
-
-        # If the user has 3 or more games, remove the oldest game and add the new one
-        if game_count >= 3:
-            oldest_game_key = list(user_data.keys())[0]  # Get the key of the oldest game
-            games_ref.child(key).update({
-                oldest_game_key: None,  # Remove the oldest game
-                '-L' + str(int(time.time() * 1000)): new_val  # Add the new game with a timestamp
-            })
-        else:
-            # If the user has less than 3 games, add the new game
-            games_ref.child(key).update({
-                '-L' + str(int(time.time() * 1000)): new_val  # Add the new game with a timestamp
-            })
 
 
 def iterate(author):
@@ -260,7 +235,30 @@ async def submit(ctx, *, game):
             else:
                 result = result + item
         # games_ref.child(str(ctx.author.id)).push(str(result).replace('\n', ''))
-        await update_dict(str(ctx.author.id), str(result).replace('\n', ''))
+      
+    user_data = games_ref.child(key).get()
+
+    if user_data is None:
+        # Create a new entry for the user
+        games_ref.child(str(ctx.author.id)).set({
+            '-L' + str(int(time.time() * 1000)): str(result).replace('\n', '')  # Add the new game with a timestamp
+        })
+    else:
+        # Get the current game count
+        game_count = len(user_data.keys())
+
+        # If the user has 3 or more games, remove the oldest game and add the new one
+        if game_count >= 3:
+            oldest_game_key = list(user_data.keys())[0]  # Get the key of the oldest game
+            games_ref.child(str(ctx.author.id)).update({
+                oldest_game_key: None,  # Remove the oldest game
+                '-L' + str(int(time.time() * 1000)): str(result).replace('\n', '')  # Add the new game with a timestamp
+            })
+        else:
+            # If the user has less than 3 games, add the new game
+            games_ref.child(str(ctx.author.id)).update({
+                '-L' + str(int(time.time() * 1000)): str(result).replace('\n', '')  # Add the new game with a timestamp
+            })
 
     display_namee = iterate(ctx.author.display_name)
     embed1 = discord.Embed(description=f'**{display_namee}** предложил игру **{str(result)}**',
