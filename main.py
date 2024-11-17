@@ -181,7 +181,7 @@ async def list(ctx):
     if all_games:
         for user_id, games in all_games.items():
             for game in games.values():
-                message += f"'{game}\n"
+                message += f"{game}\n"
         await ctx.send(message)
     else:
         await ctx.send('Лист пуст')
@@ -236,10 +236,9 @@ async def submit(ctx, *, game):
                 result = result + item
         # games_ref.child(str(ctx.author.id)).push(str(result).replace('\n', ''))
       
-    user_data = await games_ref.child(str(ctx.author.id)).get()
+    user_data = games_ref.child(str(ctx.author.id)).get()
 
     if user_data is None:
-        # Create a new entry for the user
         games_ref.child(str(ctx.author.id)).set({
             '-L' + str(int(time.time() * 1000)): str(result).replace('\n', '')  # Add the new game with a timestamp
         })
@@ -247,12 +246,14 @@ async def submit(ctx, *, game):
         # Get the current game count
         game_count = len(user_data.keys())
 
-        # If the user has 3 or more games, remove the oldest game and add the new one
         if game_count >= 3:
-            oldest_game_key = list(user_data.keys())[0]  # Get the key of the oldest game
+            print(user_data.keys())
+            print(user_data)
+            summarize = [key for key in user_data.keys()]
+            oldest_game = min(summarize)
             games_ref.child(str(ctx.author.id)).update({
-                oldest_game_key: None,  # Remove the oldest game
-                '-L' + str(int(time.time() * 1000)): str(result).replace('\n', '')  # Add the new game with a timestamp
+                oldest_game: None,
+                '-L' + str(int(time.time() * 1000)): str(result).replace('\n', '')
             })
         else:
             # If the user has less than 3 games, add the new game
@@ -285,7 +286,7 @@ async def delete_item(ctx, *, suggestion):
                 result = result + item
         if result in t_list:
             t_list.pop(t_list.index(result))
-            ref.child(str(ctx.author.id)).set(t_list)
+            user_data.child(str(ctx.author.id)).set(t_list)
             await ctx.send(f'Успешно удалён элемент {result}.')
         else:
             await ctx.send(f'Элемент не найден в вашем списке...')
