@@ -236,7 +236,7 @@ async def submit(ctx, *, game):
                 result = result + item
         # games_ref.child(str(ctx.author.id)).push(str(result).replace('\n', ''))
       
-    user_data = games_ref.child(key).get()
+    user_data = games_ref.child(str(ctx.author.id)).get()
 
     if user_data is None:
         # Create a new entry for the user
