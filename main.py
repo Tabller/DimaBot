@@ -23,7 +23,7 @@ load_dotenv(dotenv_path='/root/DimaBot/.env')
 intents = discord.Intents.all()
 intents.message_content = True
 
-client = commands.Bot(command_prefix='!', intents=intents)
+client = commands.Bot(command_prefix='!', intents=intents, help_command=None)
 url = os.environ['WEBHOOK_URL']
 
 
@@ -160,18 +160,18 @@ class Menu(discord.ui.View):
 
 
 @client.command()
-async def helpp(ctx, member: discord.Member = None):
+async def help(ctx, member: discord.Member = None):
     if member == None:
         member = ctx.author
 
     name = member.display_name
     pfp = member.display_avatar
 
-    embed = discord.Embed(title='Томатские Угодья',
+    embed = discord.Embed(title='димабот ft. Томатские Угодья',
                           description='Здесь находится вся актуальная информация о ссылках, которые ведут на томата.',
                           colour=discord.Colour(int('a970ff', 16)))
-    embed.add_field(name='Команды',
-                    value='\n`/submit [игра]` — Предложить игру для стрима в канал <#1185909058910310420> \n`/list` — Посмотреть список предложенных игр.',
+    embed.add_field(name='Команды димы',
+                    value='\n`/submit [игра]` — Предложить игру для стрима в канал <#1185909058910310420> \n`/list` — Посмотреть список предложенных игр. \n`!balance` — Проверить свой карман (на наличие денег) \n`!fish` — Рыбалка симулятор.',
                     inline=False)
 
     view = Menu()
