@@ -12,6 +12,7 @@ from discord.ext import commands
 from discord.utils import get
 from discord import Webhook, SyncWebhook
 import aiohttp
+import random
 import json
 import time
 from dotenv import load_dotenv
@@ -51,12 +52,17 @@ async def on_ready():
 @client.event
 async def on_message(message):
     if message.guild.id == 967091313038196796:
-        await open_account(message.author)
-        users = await get_jar_data()
-        users[str(message.author.id)]["монетки"] += 1
-        with open("moneyjar.json", 'w') as f:
-            json.dump(users, f)
-    
+        user_data = economy_ref.child(str(message.author.id)).get()
+        if user_data is None:
+            economy_ref.child(str(message.author.id)).set({
+                'coins': 0
+            })
+        else:
+            current_coins = user_data['coins']
+            economy_ref.child(str(message.author.id)).set({
+                'coins': current_coins + 1
+            })
+
     await client.process_commands(message)
 
 
@@ -154,8 +160,7 @@ class Menu(discord.ui.View):
 
 
 @client.command()
-@commands.is_owner()
-async def embed(ctx, member: discord.Member = None):
+async def helpp(ctx, member: discord.Member = None):
     if member == None:
         member = ctx.author
 
@@ -339,52 +344,244 @@ async def feedback(ctx, *, text):
 
 @client.command()
 async def balance(ctx):
-    await open_account(ctx.author)
-    users = await get_jar_data()
+    user_data = economy_ref.child(str(ctx.author.id)).get()
 
-    karman = users[str(ctx.author.id)]["монетки"]
+    karman = user_data['coins']
 
     embed = discord.Embed(title=f'Карман Игрока {ctx.author.display_name}', colour=discord.Colour(int('5BC1FF', 16)))
     embed.add_field(name = 'Монетки', value = karman)
     await ctx.send(embed = embed)
 
+@client.command()
+@commands.cooldown(1, 6, commands.BucketType.user)
+async def fish(ctx):
+    user_data = economy_ref.child(str(ctx.author.id)).get()
 
-async def open_account(user):
-    users = await get_jar_data()
+    if user_data is None:
+        economy_ref.child(ctx.author.id).set({'coins': 0})
 
-    if str(user.id) in users:
-        return False
+    global game_run
+
+    game_run = True
+
+    map_one_coordinates = [["◼️", "◼️", "◼️", "◼️", "◼️", "☀️", "◼️"],
+                           ["◼️", "◼️", "◼️", "◼️", "◼️", "◼️", "◼️"],
+                           ["◼️", "◼️", "◼️", "🛶", "◼️", "◼️", "◼️"],
+                           ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
+                           ["🟦", "🟦", "🟦", "🪝", "🟦", "🟦", "🟦"],
+                           ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
+                           ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
+                           ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
+                           ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
+                           ["🟦", "🟦", "🟦", "🟦", "🟦", "🪸", "🟦"],
+                           ["🟨", "🪸", "🟦", "🟦", "🟨", "🟨", "🟨"],
+                           ["🟨", "🟨", "🟨", "🟨", "🟨", "🟨", "🟨"]]
+    global previous_hook
+    global previous_boat
+    previous_hook = [4, 3]
+    previous_boat = [2, 3]
+
+    def map_print():
+        # map_one_coordinates, fish_coord = spawn_fish()
+        global line
+        count = 0
+        line = ''
+        for row in map_one_coordinates:
+            for emoji in row:
+                if count < 7:
+
+                    line = line + f''.join(emoji)
+                    count += 1
+                else:
+                    line = line + f''.join('\n')
+                    line = line + f''.join(emoji)
+                    count = 1
+        return line
+
+    def move_boat(x,y, new_x):
+        global raw_map
+        raw_map = map_one_coordinates
+        what_to_change = map_one_coordinates[y][x+new_x]
+        raw_map[y][x + new_x] = "🛶"
+        raw_map[y][x] = what_to_change
+        previous_boat[1] += new_x
+        return raw_map
+
+    def spawn_fish():
+        choice_x = [0, 6]
+        choice_y = [5, 8]
+        fish_emojis = ['🐟', '🐠', '🐡', '🪼']
+        global raw_map
+        raw_map = map_one_coordinates
+        fish_y = random.choice(choice_y)
+        fish_x = random.choice(choice_x)
+        fish_coords = [fish_y, fish_x]
+        raw_map[fish_y][fish_x] = random.choice(fish_emojis)
+
+        print(raw_map, fish_coords)
+        return raw_map, fish_coords
+
+    spawn_fish()
+
+    def change_coord(x, y, new_x, new_y):
+        # if previous_hook[0] > 3 or new_y == -1:
+        global game_run
+        global raw_map
+        what_to_change = map_one_coordinates[y+new_y][x+new_x]
+        if (what_to_change != "🟨") and (what_to_change != "🪸") and (what_to_change != "◼️") and (what_to_change != "🛶") and (what_to_change != '🐟') and (what_to_change != '🐠') and (what_to_change != '🐡') and (what_to_change != '🪼'):
+            raw_map = move_boat(previous_boat[1], previous_boat[0], new_x)
+            # raw_map = map_one_coordinates
+            raw_map[y+new_y][x+new_x] = "🪝"
+            raw_map[y][x] = what_to_change
+            previous_hook[0] += new_y
+            previous_hook[1] += new_x
+            global line
+            count = 0
+            line = ''
+            for row in raw_map:
+                for emoji in row:
+                    if count < 7:
+
+                        line = line + f''.join(emoji)
+                        count += 1
+                    else:
+                        line = line + f''.join('\n')
+                        line = line + f''.join(emoji)
+                        count = 1
+            return line
+        else:
+
+            if what_to_change == '🐟':
+                cm = random.randint(1, 100)
+                line = f'вы поймали карася размером {cm} сантиметров'
+                # base 5 * cm / 10
+                current_coins = user_data.get('coins', 0)
+                new_coins = current_coins + 5 * (cm / 10)
+                economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+
+                game_run = False
+                return line
+            if what_to_change == '🐠':
+                cm = random.randint(1, 100)
+                line = f'вы поймали брата карася размером {cm} сантиметров'
+                # base 6 * cm / 10
+                current_coins = user_data.get('coins', 0)
+                new_coins = current_coins + 6 * (cm / 10)
+                economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+
+                game_run = False
+                return line
+            if what_to_change == '🐡':
+                cm = random.randint(1, 100)
+                line = f'вы поймали рыбу агу ага размером {cm} сантиметров'
+                # base 8 * cm / 10
+                current_coins = user_data.get('coins', 0)
+                new_coins = current_coins + 8 * (cm / 10)
+                economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+
+                game_run = False
+                return line
+            if what_to_change == '🪼':
+                cm = random.randint(1, 100)
+                line = f'вы поймали медузу крутую размером {cm} сантиметров'
+                # base 10 * cm / 10
+                current_coins = user_data.get('coins', 0)
+                new_coins = current_coins + 10 * (cm/10)
+                economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+
+                game_run = False
+                return line
+            count = 0
+            line = ''
+            for row in raw_map:
+                for emoji in row:
+                    if count < 7:
+                        line = line + f''.join(emoji)
+                        count += 1
+                    else:
+                        line = line + f''.join('\n')
+                        line = line + f''.join(emoji)
+                        count = 1
+            return line
+
+    class Buttons(discord.ui.View):
+        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬆️')
+        async def up(self, interaction: discord.Interaction, button: discord.ui.Button):
+            desc = change_coord(previous_hook[1], previous_hook[0], 0, -1)
+            new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
+            await message.edit(embed=new_embed)
+        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬇️')
+        async def down(self, interaction: discord.Interaction, button: discord.ui.Button):
+            desc = change_coord(previous_hook[1], previous_hook[0], 0, 1)
+            new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
+            await message.edit(embed=new_embed)
+        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬅️')
+        async def left(self, interaction: discord.Interaction, button: discord.ui.Button):
+            desc = change_coord(previous_hook[1], previous_hook[0], -1, 0)
+            new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)),
+                                      title=f'фишинг {ctx.author.display_name}', description=desc)
+            await message.edit(embed=new_embed)
+        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='➡️')
+        async def right(self, interaction: discord.Interaction, button: discord.ui.Button):
+            desc = change_coord(previous_hook[1], previous_hook[0], 1, 0)
+            new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)),
+                                      title=f'фишинг {ctx.author.display_name}', description=desc)
+            await message.edit(embed=new_embed)
+
+    if game_run:
+        view = Buttons(timeout=None)
     else:
-        users[str(user.id)] = {}
-        users[str(user.id)]["монетки"] = 0
-    
-    with open('moneyjar.json', 'w') as f:
-        json.dump(users, f)
+        view = None
 
-    return True
+    embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=map_print())
 
-
-async def get_jar_data():
-    with open('moneyjar.json', 'r') as f:
-        users = json.load(f)
-    return users
-
-
+    message = await ctx.send(embed=embed, view=view)
 
 @client.command()
-async def zapor(ctx, username):
-    # Use the 'users' collection in your Cloud Firestore database
-    user_ref = db.collection('users').document(username)
-    # Store user data in a dictionary
-    user_data = {
-        'name': username,
-        'guild': ctx.guild.id
-    }
-    # Set the user data in the document
-    user_ref.set(user_data)
-    await ctx.send(f"User {username} registered!")
+@commands.cooldown(1, 6, commands.BucketType.user)
+async def simulation3(ctx):
+    def generate_game():
+        fish_emojis = ['🐟', '🐠', '🐡', '🪼']
+        fish_game = ['', '', '', '', '', '', '']
+        random_index = random.randint(0, 6)
+        fish_game[random_index] = random.choice(fish_emojis)
+        count = 0
+        for emoji in fish_game:
+            if emoji in fish_emojis:
+                pass
+            else:
+                fish_game[count] = "🟦"
+            count += 1
+
+
+        global line2
+        line2 = ''
+        for emoji in fish_game:
+            line2 = line2 + f''.join(emoji)
+            line2 = line2 + f''.join('\n')
+        return line2
 
 
 
 
+
+
+
+    class Buttons(discord.ui.View):
+        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬆️')
+        async def up(self, interaction: discord.Interaction, button: discord.ui.Button):
+            desc = ''
+            new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
+            await message.edit(embed=new_embed)
+        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬇️')
+        async def down(self, interaction: discord.Interaction, button: discord.ui.Button):
+            desc = ''
+            new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
+            await message.edit(embed=new_embed)
+
+    view = Buttons(timeout=None)
+    embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}',
+                          description=generate_game())
+
+    message = await ctx.send(embed=embed, view=view)
 client.run(os.environ['BOT_TOKEN'])
