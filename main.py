@@ -351,23 +351,32 @@ async def balance(ctx):
 
     karman = user_data['coins']
 
+    inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+
+    if inventory_data is None:
+        embed = discord.Embed(title=f'Карман Игрока {ctx.author.display_name}',
+                              colour=discord.Colour(int('5BC1FF', 16)))
+        embed.add_field(name='Монетки', value=karman)
+        await ctx.send(embed=embed)
+
+
     embed = discord.Embed(title=f'Карман Игрока {ctx.author.display_name}', colour=discord.Colour(int('5BC1FF', 16)))
     embed.add_field(name = 'Монетки', value = karman)
+
+    for item_name, quantity in inventory_data.items():
+        if item_name == "boot":
+            embed.add_field(name = '👢', value = quantity)
+
     await ctx.send(embed = embed)
 
 @client.command()
 @commands.cooldown(1, 6, commands.BucketType.user)
 async def fish(ctx):
     user_data = economy_ref.child(str(ctx.author.id)).get()
-    user_inventory_data = inventory_ref.child(str(ctx.author.id))
-    inventory_data = user_inventory_data.set({})
+    inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
     if user_data is None:
         economy_ref.child(ctx.author.id).set({'coins': 0})
-
-    if inventory_data is None:
-        inventory_ref.child(str(ctx.author.id)).set({})
-
 
     game_run = True
 
@@ -417,8 +426,8 @@ async def fish(ctx):
     def spawn_fish():
         choice_x = [0, 6]
         choice_y = [5, 8]
-        # fish_emojis = ['🐟', '🐠', '🐡', '🪼', '👢']
-        fish_emojis = ['👢']
+        fish_emojis = ['🐟', '🐠', '🐡', '🪼', '👢']
+        # fish_emojis = ['👢']
         global raw_map
         raw_map = map_one_coordinates
         fish_y = random.choice(choice_y)
@@ -504,10 +513,17 @@ async def fish(ctx):
                 return line
 
             if what_to_change == '👢':
+                inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+
+                if inventory_data is None:
+                    inventory_ref.child(str(ctx.author.id)).set({"boot": 0})
+                    current_boots = 0
+                else:
+                    current_boots = inventory_data["boot"]
+
                 line = f'вы поймали грязный ботинок из австралии. вы кладёте его в свой рюкзак'
-                current_inventory = inventory_data.get("boot", 0)
-                current_boots = inventory_data["boot"]
-                new_inventory = inventory_ref.child(str(ctx.author.id)).update({"boot": {current_boots + 1}})
+
+                new_inventory = inventory_ref.child(str(ctx.author.id)).update({"boot": current_boots + 1})
 
                 game_run = False
                 return line
