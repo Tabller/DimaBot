@@ -568,9 +568,9 @@ async def fish(ctx):
 
     embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=map_print())
     if "🟦" in embed.description:
-        view = Buttons(ctx.author, timeout=None)
-    else:
         view = None
+    else:
+        view = Buttons(ctx.author, timeout=None)
 
     message = await ctx.send(embed=embed, view=view)
 
