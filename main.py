@@ -10,7 +10,7 @@ from firebase_admin import db
 from discord.enums import ButtonStyle
 from discord.ext import commands
 from discord.utils import get
-from discord import Webhook, SyncWebhook
+from discord import Webhook, SyncWebhook, Interaction
 import aiohttp
 import random
 import json
@@ -505,60 +505,68 @@ async def fish(ctx):
             return line
 
     class Buttons(discord.ui.View):
-        def __init__(self, start_interaction: discord.Interaction):
-            super().__init__()
-            self.start_interaction = start_interaction
-            self.value = None
+        def __init__(self, author, timeout=None):
+            super().__init__(timeout=timeout)
+            self.author = author
 
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬆️')
         async def up(self, interaction: discord.Interaction, button: discord.ui.Button):
-            if interaction.user != self.start_interaction.user:
-                return False
+
             desc = change_coord(previous_hook[1], previous_hook[0], 0, -1)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
             if game_run:
-                await message.edit(embed=new_embed)
+                await message.edit(embed=new_embed, view=Buttons(ctx.author, timeout=None))
             else:
                 await message.edit(embed=new_embed, view=None)
             await interaction.response.defer()
+
+        async def interaction_check(self, interaction: Interaction):
+            return interaction.user.id == self.author.id
+
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬇️')
         async def down(self, interaction: discord.Interaction, button: discord.ui.Button):
-            if interaction.user != self.start_interaction.user:
-                return False
             desc = change_coord(previous_hook[1], previous_hook[0], 0, 1)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
             if game_run:
-                await message.edit(embed=new_embed)
+                await message.edit(embed=new_embed, view=Buttons(ctx.author, timeout=None))
             else:
                 await message.edit(embed=new_embed, view=None)
             await interaction.response.defer()
+
+        async def interaction_check(self, interaction: Interaction):
+            return interaction.user.id == self.author.id
+
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬅️')
         async def left(self, interaction: discord.Interaction, button: discord.ui.Button):
-            if interaction.user != self.start_interaction.user:
-                return False
             desc = change_coord(previous_hook[1], previous_hook[0], -1, 0)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)),
                                       title=f'фишинг {ctx.author.display_name}', description=desc)
             if game_run:
-                await message.edit(embed=new_embed)
-            else:
-                await message.edit(embed=new_embed, view=None)
-            await interaction.response.defer()
-        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='➡️')
-        async def right(self, interaction: discord.Interaction, button: discord.ui.Button):
-            if interaction.user != self.start_interaction.user:
-                return False
-            desc = change_coord(previous_hook[1], previous_hook[0], 1, 0)
-            new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)),
-                                      title=f'фишинг {ctx.author.display_name}', description=desc)
-            if game_run:
-                await message.edit(embed=new_embed)
+                await message.edit(embed=new_embed, view=Buttons(ctx.author, timeout=None))
             else:
                 await message.edit(embed=new_embed, view=None)
             await interaction.response.defer()
 
+
+        async def interaction_check(self, interaction: Interaction):
+            return interaction.user.id == self.author.id
+
+        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='➡️')
+        async def right(self, interaction: discord.Interaction, button: discord.ui.Button):
+            desc = change_coord(previous_hook[1], previous_hook[0], 1, 0)
+            new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)),
+                                      title=f'фишинг {ctx.author.display_name}', description=desc)
+            if game_run:
+                await message.edit(embed=new_embed, view=Buttons(ctx.author, timeout=None))
+            else:
+                await message.edit(embed=new_embed, view=None)
+            await interaction.response.defer()
+
+        async def interaction_check(self, interaction: Interaction):
+            return interaction.user.id == self.author.id
+
     if game_run:
-        view = Buttons(timeout=None)
+        view = Buttons(ctx.author, timeout=None)
     else:
         view = None
 
