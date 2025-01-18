@@ -18,6 +18,8 @@ import time
 from dotenv import load_dotenv
 import os
 
+from rsa.randnum import randint
+
 load_dotenv(dotenv_path='/root/DimaBot/.env')
 
 intents = discord.Intents.all()
@@ -357,16 +359,14 @@ async def balance(ctx):
 @commands.cooldown(1, 6, commands.BucketType.user)
 async def fish(ctx):
     user_data = economy_ref.child(str(ctx.author.id)).get()
-    inventory_data = inventory_ref.child(str(ctx.author.id)).get()
-
+    user_inventory_data = inventory_ref.child(str(ctx.author.id))
+    inventory_data = user_inventory_data.set({})
 
     if user_data is None:
         economy_ref.child(ctx.author.id).set({'coins': 0})
 
     if inventory_data is None:
-        inventory_ref.child(str(ctx.author.id)).set({
-            'inventory': []
-        })
+        inventory_ref.child(str(ctx.author.id)).set({})
 
 
     game_run = True
@@ -417,7 +417,8 @@ async def fish(ctx):
     def spawn_fish():
         choice_x = [0, 6]
         choice_y = [5, 8]
-        fish_emojis = ['🐟', '🐠', '🐡', '🪼']
+        # fish_emojis = ['🐟', '🐠', '🐡', '🪼', '👢']
+        fish_emojis = ['👢']
         global raw_map
         raw_map = map_one_coordinates
         fish_y = random.choice(choice_y)
@@ -428,14 +429,17 @@ async def fish(ctx):
         print(raw_map, fish_coords)
         return raw_map, fish_coords
 
-    spawn_fish()
+    how_many = random.randint(1,3)
+
+    for i in range(how_many):
+        spawn_fish()
 
     def change_coord(x, y, new_x, new_y):
         # if previous_hook[0] > 3 or new_y == -1:
         # global game_run
         global raw_map
         what_to_change = map_one_coordinates[y+new_y][x+new_x]
-        if (what_to_change != "🟨") and (what_to_change != "🪸") and (what_to_change != "◼️") and (what_to_change != "🛶") and (what_to_change != '🐟') and (what_to_change != '🐠') and (what_to_change != '🐡') and (what_to_change != '🪼'):
+        if (what_to_change != "🟨") and (what_to_change != "🪸") and (what_to_change != "◼️") and (what_to_change != "🛶") and (what_to_change != '🐟') and (what_to_change != '🐠') and (what_to_change != '🐡') and (what_to_change != '🪼') and (what_to_change != '👢'):
             raw_map = move_boat(previous_boat[1], previous_boat[0], new_x)
             # raw_map = map_one_coordinates
             raw_map[y+new_y][x+new_x] = "🪝"
@@ -498,6 +502,16 @@ async def fish(ctx):
 
                 game_run = False
                 return line
+
+            if what_to_change == '👢':
+                line = f'вы поймали грязный ботинок из австралии. вы кладёте его в свой рюкзак'
+                current_inventory = inventory_data.get("boot", 0)
+                current_boots = inventory_data["boot"]
+                new_inventory = inventory_ref.child(str(ctx.author.id)).update({"boot": {current_boots + 1}})
+
+                game_run = False
+                return line
+
             count = 0
             line = ''
             for row in raw_map:
