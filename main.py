@@ -425,7 +425,7 @@ async def fish(ctx):
 
     def change_coord(x, y, new_x, new_y):
         # if previous_hook[0] > 3 or new_y == -1:
-        global game_run
+        # global game_run
         global raw_map
         what_to_change = map_one_coordinates[y+new_y][x+new_x]
         if (what_to_change != "🟨") and (what_to_change != "🪸") and (what_to_change != "◼️") and (what_to_change != "🛶") and (what_to_change != '🐟') and (what_to_change != '🐠') and (what_to_change != '🐡') and (what_to_change != '🪼'):
@@ -565,12 +565,13 @@ async def fish(ctx):
         async def interaction_check(self, interaction: Interaction):
             return interaction.user.id == self.author.id
 
-    if game_run:
+
+    embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=map_print())
+    if "🟦" in embed.description:
         view = Buttons(ctx.author, timeout=None)
     else:
         view = None
 
-    embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=map_print())
     message = await ctx.send(embed=embed, view=view)
 
 @client.command()
