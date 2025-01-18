@@ -514,10 +514,12 @@ async def fish(ctx):
 
             desc = change_coord(previous_hook[1], previous_hook[0], 0, -1)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
-            if game_run:
+            if "🟦" in new_embed:
                 await message.edit(embed=new_embed, view=Buttons(ctx.author, timeout=None))
+                print(new_embed)
             else:
                 await message.edit(embed=new_embed, view=None)
+                print(new_embed)
             await interaction.response.defer()
 
         async def interaction_check(self, interaction: Interaction):
@@ -527,8 +529,9 @@ async def fish(ctx):
         async def down(self, interaction: discord.Interaction, button: discord.ui.Button):
             desc = change_coord(previous_hook[1], previous_hook[0], 0, 1)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
-            if game_run:
+            if "🟦" in new_embed:
                 await message.edit(embed=new_embed, view=Buttons(ctx.author, timeout=None))
+
             else:
                 await message.edit(embed=new_embed, view=None)
             await interaction.response.defer()
@@ -541,7 +544,7 @@ async def fish(ctx):
             desc = change_coord(previous_hook[1], previous_hook[0], -1, 0)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)),
                                       title=f'фишинг {ctx.author.display_name}', description=desc)
-            if game_run:
+            if "🟦" in new_embed:
                 await message.edit(embed=new_embed, view=Buttons(ctx.author, timeout=None))
             else:
                 await message.edit(embed=new_embed, view=None)
@@ -556,7 +559,7 @@ async def fish(ctx):
             desc = change_coord(previous_hook[1], previous_hook[0], 1, 0)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)),
                                       title=f'фишинг {ctx.author.display_name}', description=desc)
-            if game_run:
+            if "🟦" in new_embed:
                 await message.edit(embed=new_embed, view=Buttons(ctx.author, timeout=None))
             else:
                 await message.edit(embed=new_embed, view=None)
