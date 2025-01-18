@@ -569,6 +569,7 @@ async def fish(ctx):
     embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=map_print())
     if "вы" in embed.description:
         message = await ctx.send(embed=embed, view=None)
+        await message.edit(embed=embed, view=None)
     else:
         message = await ctx.send(embed=embed, view=Buttons(ctx.author, timeout=None))
 # d
