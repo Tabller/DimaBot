@@ -538,7 +538,7 @@ async def fish(ctx):
         view = None
 
     embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=map_print())
-
+    print(game_run)
     message = await ctx.send(embed=embed, view=view)
 
 @client.command()
