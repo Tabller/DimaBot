@@ -37,6 +37,7 @@ firebase_admin.initialize_app(cred, {
   })
 games_ref = db.reference('games')
 economy_ref = db.reference('economy')
+inventory_ref = db.reference('inventory')
 
 @client.event
 async def on_ready():
@@ -356,9 +357,16 @@ async def balance(ctx):
 @commands.cooldown(1, 6, commands.BucketType.user)
 async def fish(ctx):
     user_data = economy_ref.child(str(ctx.author.id)).get()
+    inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+
 
     if user_data is None:
         economy_ref.child(ctx.author.id).set({'coins': 0})
+
+    if inventory_data is None:
+        inventory_ref.child(str(ctx.author.id)).set({
+            'inventory': []
+        })
 
     # global game_run
 
