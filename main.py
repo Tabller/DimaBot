@@ -368,7 +368,6 @@ async def fish(ctx):
             'inventory': []
         })
 
-    # global game_run
 
     game_run = True
 
