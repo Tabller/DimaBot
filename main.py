@@ -505,8 +505,15 @@ async def fish(ctx):
             return line
 
     class Buttons(discord.ui.View):
+        def __init__(self, start_interaction: discord.Interaction):
+            super().__init__()
+            self.start_interaction = start_interaction
+            self.value = None
+
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬆️')
         async def up(self, interaction: discord.Interaction, button: discord.ui.Button):
+            if interaction.user != self.start_interaction.user:
+                return False
             desc = change_coord(previous_hook[1], previous_hook[0], 0, -1)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
             if game_run:
@@ -516,6 +523,8 @@ async def fish(ctx):
             await interaction.response.defer()
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬇️')
         async def down(self, interaction: discord.Interaction, button: discord.ui.Button):
+            if interaction.user != self.start_interaction.user:
+                return False
             desc = change_coord(previous_hook[1], previous_hook[0], 0, 1)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
             if game_run:
@@ -525,6 +534,8 @@ async def fish(ctx):
             await interaction.response.defer()
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬅️')
         async def left(self, interaction: discord.Interaction, button: discord.ui.Button):
+            if interaction.user != self.start_interaction.user:
+                return False
             desc = change_coord(previous_hook[1], previous_hook[0], -1, 0)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)),
                                       title=f'фишинг {ctx.author.display_name}', description=desc)
@@ -535,6 +546,8 @@ async def fish(ctx):
             await interaction.response.defer()
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='➡️')
         async def right(self, interaction: discord.Interaction, button: discord.ui.Button):
+            if interaction.user != self.start_interaction.user:
+                return False
             desc = change_coord(previous_hook[1], previous_hook[0], 1, 0)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)),
                                       title=f'фишинг {ctx.author.display_name}', description=desc)
