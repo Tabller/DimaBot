@@ -509,27 +509,39 @@ async def fish(ctx):
         async def up(self, interaction: discord.Interaction, button: discord.ui.Button):
             desc = change_coord(previous_hook[1], previous_hook[0], 0, -1)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
-            await message.edit(embed=new_embed)
+            if game_run:
+                await message.edit(embed=new_embed)
+            else:
+                await message.edit(embed=new_embed, view=None)
             await interaction.response.defer()
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬇️')
         async def down(self, interaction: discord.Interaction, button: discord.ui.Button):
             desc = change_coord(previous_hook[1], previous_hook[0], 0, 1)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
-            await message.edit(embed=new_embed)
+            if game_run:
+                await message.edit(embed=new_embed)
+            else:
+                await message.edit(embed=new_embed, view=None)
             await interaction.response.defer()
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬅️')
         async def left(self, interaction: discord.Interaction, button: discord.ui.Button):
             desc = change_coord(previous_hook[1], previous_hook[0], -1, 0)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)),
                                       title=f'фишинг {ctx.author.display_name}', description=desc)
-            await message.edit(embed=new_embed)
+            if game_run:
+                await message.edit(embed=new_embed)
+            else:
+                await message.edit(embed=new_embed, view=None)
             await interaction.response.defer()
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='➡️')
         async def right(self, interaction: discord.Interaction, button: discord.ui.Button):
             desc = change_coord(previous_hook[1], previous_hook[0], 1, 0)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)),
                                       title=f'фишинг {ctx.author.display_name}', description=desc)
-            await message.edit(embed=new_embed)
+            if game_run:
+                await message.edit(embed=new_embed)
+            else:
+                await message.edit(embed=new_embed, view=None)
             await interaction.response.defer()
 
     if game_run:
@@ -538,7 +550,6 @@ async def fish(ctx):
         view = None
 
     embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=map_print())
-    print(game_run)
     message = await ctx.send(embed=embed, view=view)
 
 @client.command()
