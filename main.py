@@ -571,7 +571,7 @@ async def fish(ctx):
         message = await ctx.send(embed=embed, view=None)
     else:
         message = await ctx.send(embed=embed, view=Buttons(ctx.author, timeout=None))
-
+# d
 
 @client.command()
 @commands.cooldown(1, 6, commands.BucketType.user)
