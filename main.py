@@ -346,6 +346,7 @@ async def feedback(ctx, *, text):
     await ctx.send('фидбек отправлен (наверное)')
 
 @client.command()
+@commands.cooldown(1, 10, commands.BucketType.user)
 async def balance(ctx):
     user_data = economy_ref.child(str(ctx.author.id)).get()
 
