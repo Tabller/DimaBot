@@ -360,7 +360,7 @@ async def fish(ctx):
     if user_data is None:
         economy_ref.child(ctx.author.id).set({'coins': 0})
 
-    global game_run
+    # global game_run
 
     game_run = True
 
