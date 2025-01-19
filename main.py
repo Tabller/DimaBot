@@ -404,7 +404,7 @@ async def sell(ctx, item: str):
 
     if len(what_to_sell) >= 1:
 
-        if len(what_to_sell) > 1:
+        if len(what_to_sell) > 1 and item != "inventory":
             await ctx.send(
                 f"ничего себе, у тебя несколько '{item}'. выбери чё продать из этого:\n" +
                 "\n".join([f"- {item}: {value} см" for name, value in what_to_sell.items()])
@@ -416,7 +416,7 @@ async def sell(ctx, item: str):
                 return m.author == ctx.author and m.content.isdigit() and int(m.content) in what_to_sell.values() or m.content == "всё"
 
         try:
-            if len(what_to_sell) > 1:
+            if len(what_to_sell) > 1 and item != "inventory":
                 response = await client.wait_for('message', check=check, timeout=30)
 
                 selected_item = response.content
