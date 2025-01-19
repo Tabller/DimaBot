@@ -464,7 +464,7 @@ async def sell(ctx, item: str):
 
 
                         funny_copy_what_to_sell.pop(key)
-                        await ctx.send(f"на файерградском рынке купили {item} за {sell_price} монет")
+                        await ctx.send(f"на файерградском рынке купили {key} за {sell_price} монет")
 
                         if selected_item != "всё":
                             break
@@ -606,7 +606,7 @@ async def fish(ctx):
                 inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
                 if inventory_data is None:
-                    inventory_ref.child(str(ctx.author.id)).set({'🐟': cm})
+                    inventory_ref.child(str(ctx.author.id)).set({'🐟' + str(int(time.time() * 1000)): cm})
                 else:
                     current_fish = inventory_ref.child(str(ctx.author.id)).update({
                         '🐟' + str(int(time.time() * 1000)): cm
@@ -626,7 +626,7 @@ async def fish(ctx):
                 inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
                 if inventory_data is None:
-                    inventory_ref.child(str(ctx.author.id)).set({'🐠': cm})
+                    inventory_ref.child(str(ctx.author.id)).set({'🐠' + str(int(time.time() * 1000)): cm})
                 else:
                     current_tropical_fish = inventory_ref.child(str(ctx.author.id)).update({
                         '🐠' + str(int(time.time() * 1000)): cm
@@ -646,7 +646,7 @@ async def fish(ctx):
                 inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
                 if inventory_data is None:
-                    inventory_ref.child(str(ctx.author.id)).set({'🐡': cm})
+                    inventory_ref.child(str(ctx.author.id)).set({'🐡' + str(int(time.time() * 1000)): cm})
                 else:
                     current_blowfish = inventory_ref.child(str(ctx.author.id)).update({
                         '🐡' + str(int(time.time() * 1000)): cm
@@ -667,7 +667,7 @@ async def fish(ctx):
                 inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
                 if inventory_data is None:
-                    inventory_ref.child(str(ctx.author.id)).set({'🪼': cm})
+                    inventory_ref.child(str(ctx.author.id)).set({'🪼' + str(int(time.time() * 1000)): cm})
                 else:
                     current_jellyfish = inventory_ref.child(str(ctx.author.id)).update({
                         '🪼' + str(int(time.time() * 1000)): cm
