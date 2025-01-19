@@ -177,7 +177,7 @@ async def help(ctx, member: discord.Member = None):
                           description='Здесь находится вся актуальная информация о ссылках, которые ведут на томата.',
                           colour=discord.Colour(int('a970ff', 16)))
     embed.add_field(name='Команды димы',
-                    value='\n`/submit [игра]` — Предложить игру для стрима в канал <#1185909058910310420> \n`/list` — Посмотреть список предложенных игр. \n`!balance` — Проверить свой карман (на наличие денег). \n`!fish` — Рыбалка симулятор. \n `!sell [эмодзи]` — Продать предмет(ы)',
+                    value='\n`/submit [игра]` — Предложить игру для стрима в канал <#1185909058910310420> \n`/list` — Посмотреть список предложенных игр. \n`!balance` — Проверить свой карман (на наличие денег). \n`!fish` — Рыбалка симулятор. \n `!sell [эмодзи/inventory]` — Продать предмет(ы)/весь инвентарь',
                     inline=False)
 
     view = Menu()
@@ -399,7 +399,7 @@ async def sell(ctx, item: str):
 
     what_to_sell = {}
     for item_name, quantity in dictionary.items():
-        if item in item_name or item == "fish":
+        if item in item_name or item == "inventory":
             what_to_sell[item_name] = quantity
 
     if len(what_to_sell) >= 1:
