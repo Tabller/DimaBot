@@ -20,7 +20,7 @@ import time
 from dotenv import load_dotenv
 import os
 from collections import Counter
-
+from string import digits
 from rsa.randnum import randint
 
 load_dotenv(dotenv_path='/root/DimaBot/.env')
@@ -460,11 +460,11 @@ async def sell(ctx, item: str):
                             current_coins = user_data.get("coins", 0)
                             user_economy_ref.update({"coins": current_coins + sell_price})
 
-
-
+                        remove_digits = str.maketrans('', '', digits)
+                        name = key.translate(remove_digits)
 
                         funny_copy_what_to_sell.pop(key)
-                        await ctx.send(f"на файерградском рынке купили {key} за {sell_price} монет")
+                        await ctx.send(f"на файерградском рынке купили {name} за {sell_price} монет")
 
                         if selected_item != "всё":
                             break
