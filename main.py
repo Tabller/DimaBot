@@ -1,3 +1,5 @@
+import copy
+
 import discord
 import ast
 import re
@@ -17,6 +19,7 @@ import json
 import time
 from dotenv import load_dotenv
 import os
+from collections import Counter
 
 from rsa.randnum import randint
 
@@ -365,11 +368,117 @@ async def balance(ctx):
     embed.add_field(name = 'Монетки', value = karman)
 
     for item_name, quantity in inventory_data.items():
-        if item_name == "boot":
-            embed.add_field(name = '👢', value = quantity)
-
+        print(item_name)
+        if item_name == '👢':
+            embed.add_field(name = '👢', value = f'{quantity} шт')
+        if '🐟' in item_name:
+            embed.add_field(name = '🐟', value = f'{quantity} см')
+        if '🐠' in item_name:
+            embed.add_field(name = '🐠', value = f'{quantity} см')
+        if '🐡' in item_name:
+            embed.add_field(name = '🐡', value = f'{quantity} см')
+        if '🪼' in item_name:
+            embed.add_field(name = '🪼', value = f'{quantity} см')
     await ctx.send(embed = embed)
 active_games = {}
+
+@client.hybrid_command()
+async def sell(ctx, item: str):
+    user_id = ctx.author.id
+    inventory_data = inventory_ref.child(str(user_id)).get()
+
+    if inventory_data is None:
+        await ctx.send('тебе нечего продать на файерградском рынке')
+
+    dictionary = {}
+    for item_name, quantity in inventory_data.items():
+        dictionary[item_name] = quantity
+
+    what_to_sell = {}
+    for item_name, quantity in dictionary.items():
+        if item in item_name:
+            what_to_sell[item_name] = quantity
+
+    if len(what_to_sell) >= 1:
+
+        if len(what_to_sell) > 1:
+            await ctx.send(
+                f"ничего себе, у тебя несколько '{item}'. выбери чё продать из этого:\n" +
+                "\n".join([f"- {item}: {value} см" for name, value in what_to_sell.items()])
+            )
+
+            msg = await ctx.send('или напиши "всё" если хочешь продать всё сразу')
+
+            def check(m):
+                return m.author == ctx.author and m.content.isdigit() and int(m.content) in what_to_sell.values() or m.content == "всё"
+
+        try:
+            if len(what_to_sell) > 1:
+                response = await client.wait_for('message', check=check, timeout=30)
+
+                selected_item = response.content
+                if response.content != "всё":
+                    await ctx.send(f"окей, ща продадим {item}: {selected_item} см")
+            else:
+                selected_item = "всё"
+
+            funny_copy_what_to_sell = copy.deepcopy(what_to_sell)
+            for key, value in what_to_sell.items():
+                if str(value) == selected_item or selected_item == "всё":
+                    try:
+                        inventory_path = f"{user_id}/{key}"
+                        inventory_ref.child(inventory_path).delete()
+                        user_economy_ref = economy_ref.child(str(user_id))
+                        user_data = user_economy_ref.get()
+
+                        if user_data is None:
+                            user_economy_ref.set({"coins": 0})
+
+
+                        # великий трейдиинг лист
+                        if item == '🐡':
+                            sell_price = int(value * 1.28)
+                            current_coins = user_data.get("coins", 0)
+                            user_economy_ref.update({"coins": current_coins + sell_price})
+                        if item == '🐟':
+                            sell_price = int(value * 1.1)
+                            current_coins = user_data.get("coins", 0)
+                            user_economy_ref.update({"coins": current_coins + sell_price})
+                        if item == '🐠':
+                            sell_price = int(value * 1.45)
+                            current_coins = user_data.get("coins", 0)
+                            user_economy_ref.update({"coins": current_coins + sell_price})
+                        if item == '🪼':
+                            sell_price = int(value * 1.76)
+                            current_coins = user_data.get("coins", 0)
+                            user_economy_ref.update({"coins": current_coins + sell_price})
+                        if item == '👢':
+                            sell_price = int(value * 1)
+                            current_coins = user_data.get("coins", 0)
+                            user_economy_ref.update({"coins": current_coins + sell_price})
+
+
+
+
+                        funny_copy_what_to_sell.pop(key)
+                        await ctx.send(f"на файерградском рынке купили {item} за {sell_price} монет")
+
+                        if selected_item != "всё":
+                            break
+                        elif len(funny_copy_what_to_sell) == 0:
+                            break
+                    except Exception as e:
+                        await ctx.send(f"запор чето не получилось, ошибка {e}")
+                else:
+                    print("говно переделывай")
+
+
+            # inventory_ref.child(str(user_id)).child(item)
+        except asyncio.TimeoutError:
+            await ctx.send("ты чет призадумался, попробуй лучше снова")
+    else:
+        await ctx.send(f"хрень, такого предмета нету")
+
 
 @client.command()
 @commands.cooldown(1, 6, commands.BucketType.user)
@@ -486,9 +595,18 @@ async def fish(ctx):
                 cm = random.randint(1, 100)
                 line = f'вы поймали карася размером {cm} сантиметров'
                 # base 5 * cm / 10
-                current_coins = user_data.get('coins', 0)
-                new_coins = current_coins + 5 * (cm / 10)
-                economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+                # current_coins = user_data.get('coins', 0)
+                # new_coins = current_coins + 5 * (cm / 10)
+                # economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+
+                inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+
+                if inventory_data is None:
+                    inventory_ref.child(str(ctx.author.id)).set({'🐟': cm})
+                else:
+                    current_fish = inventory_ref.child(str(ctx.author.id)).update({
+                        '🐟' + str(int(time.time() * 1000)): cm
+                    })
 
                 game_run = False
                 active_games.pop(user_id, None)
@@ -497,9 +615,18 @@ async def fish(ctx):
                 cm = random.randint(1, 100)
                 line = f'вы поймали брата карася размером {cm} сантиметров'
                 # base 6 * cm / 10
-                current_coins = user_data.get('coins', 0)
-                new_coins = current_coins + 6 * (cm / 10)
-                economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+                # current_coins = user_data.get('coins', 0)
+                # new_coins = current_coins + 6 * (cm / 10)
+                # economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+
+                inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+
+                if inventory_data is None:
+                    inventory_ref.child(str(ctx.author.id)).set({'🐠': cm})
+                else:
+                    current_tropical_fish = inventory_ref.child(str(ctx.author.id)).update({
+                        '🐠' + str(int(time.time() * 1000)): cm
+                    })
 
                 game_run = False
                 active_games.pop(user_id, None)
@@ -508,9 +635,19 @@ async def fish(ctx):
                 cm = random.randint(1, 100)
                 line = f'вы поймали рыбу агу ага размером {cm} сантиметров'
                 # base 8 * cm / 10
-                current_coins = user_data.get('coins', 0)
-                new_coins = current_coins + 8 * (cm / 10)
-                economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+                # current_coins = user_data.get('coins', 0)
+                # new_coins = current_coins + 8 * (cm / 10)
+                # economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+
+                inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+
+                if inventory_data is None:
+                    inventory_ref.child(str(ctx.author.id)).set({'🐡': cm})
+                else:
+                    current_blowfish = inventory_ref.child(str(ctx.author.id)).update({
+                        '🐡' + str(int(time.time() * 1000)): cm
+                    })
+
 
                 game_run = False
                 active_games.pop(user_id, None)
@@ -519,9 +656,18 @@ async def fish(ctx):
                 cm = random.randint(1, 100)
                 line = f'вы поймали медузу крутую размером {cm} сантиметров'
                 # base 10 * cm / 10
-                current_coins = user_data.get('coins', 0)
-                new_coins = current_coins + 10 * (cm/10)
-                economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+                # current_coins = user_data.get('coins', 0)
+                # new_coins = current_coins + 10 * (cm/10)
+                #economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+
+                inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+
+                if inventory_data is None:
+                    inventory_ref.child(str(ctx.author.id)).set({'🪼': cm})
+                else:
+                    current_jellyfish = inventory_ref.child(str(ctx.author.id)).update({
+                        '🪼' + str(int(time.time() * 1000)): cm
+                    })
 
                 game_run = False
                 active_games.pop(user_id, None)
@@ -531,14 +677,20 @@ async def fish(ctx):
                 inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
                 if inventory_data is None:
-                    inventory_ref.child(str(ctx.author.id)).set({"boot": 0})
+                    inventory_ref.child(str(ctx.author.id)).set({'👢': 0})
                     current_boots = 0
                 else:
-                    current_boots = inventory_data["boot"]
+                    for item_name in inventory_data.items():
+                        if '👢' == item_name:
+                            current_boots = inventory_data['👢']
+                        else:
+                            inventory_ref.child(str(ctx.author.id)).update({'👢': 0})
+                            current_boots = 0
 
-                line = f'вы поймали грязный ботинок из австралии. вы кладёте его в свой рюкзак'
 
-                new_inventory = inventory_ref.child(str(ctx.author.id)).update({"boot": current_boots + 1})
+                line = f'вы поймали грязный ботинок из австралии.'
+
+                new_inventory = inventory_ref.child(str(ctx.author.id)).update({'👢': current_boots + 1})
 
                 game_run = False
                 active_games.pop(user_id, None)
