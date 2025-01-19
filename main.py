@@ -439,23 +439,23 @@ async def sell(ctx, item: str):
 
 
                         # великий трейдиинг лист
-                        if item == '🐡' or key == '🐡':
+                        if item == '🐡' or '🐡' in key:
                             sell_price = int(value * 1.28)
                             current_coins = user_data.get("coins", 0)
                             user_economy_ref.update({"coins": current_coins + sell_price})
-                        if item == '🐟' or key == '🐟':
+                        if item == '🐟' or '🐟' in key:
                             sell_price = int(value * 1.1)
                             current_coins = user_data.get("coins", 0)
                             user_economy_ref.update({"coins": current_coins + sell_price})
-                        if item == '🐠' or key == '🐠':
+                        if item == '🐠' or '🐠' in key:
                             sell_price = int(value * 1.45)
                             current_coins = user_data.get("coins", 0)
                             user_economy_ref.update({"coins": current_coins + sell_price})
-                        if item == '🪼' or key == '🪼':
+                        if item == '🪼' or '🪼' in key:
                             sell_price = int(value * 1.76)
                             current_coins = user_data.get("coins", 0)
                             user_economy_ref.update({"coins": current_coins + sell_price})
-                        if item == '👢' or key == '👢':
+                        if item == '👢' or '👢' in key:
                             sell_price = int(value * 1)
                             current_coins = user_data.get("coins", 0)
                             user_economy_ref.update({"coins": current_coins + sell_price})
