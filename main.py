@@ -869,7 +869,9 @@ async def почистить(ctx, emoji):
     for id, inventory in inventory_data.items():
         pass
         cool_list.append(str(id))
+
     cool_list.remove(str(ctx.author.id))
+
     user_id = random.choice(cool_list)
 
     penalty_data = penalty_ref.child(str(ctx.author.id)).get()
