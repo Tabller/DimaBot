@@ -878,10 +878,10 @@ async def почистить(ctx, emoji):
         if emoji == "🍌":
             user_data = inventory_ref.child(user_id).get()
             if user_data is None:
-                inventory_ref.child(user_id).set({'🍌' + str(int(time.time() * 1000)): 10})
+                inventory_ref.child(user_id).set({'🍌' + str(int(time.time() * 1000)): 1})
             else:
                 new_banana = inventory_ref.child(user_id).update({
-                    '🍌' + str(int(time.time() * 1000)): 10
+                    '🍌' + str(int(time.time() * 1000)): 1
                 })
 
             if current_penalty > 0:
