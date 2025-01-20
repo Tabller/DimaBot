@@ -806,7 +806,7 @@ def parse_time(time_str: str) -> int:
     value, unit = match.groups()
     return int(value) * time_units[unit]
 
-@client.hybrid_command(name = "fart", with_app_command = True)
+@client.hybrid_command(name = "клетка", with_app_command = True)
 @app_commands.describe(member="юзер")
 @commands.has_permissions(administrator = True)
 async def клетка(ctx: commands.Context, member: discord.Member, time: str, bananas: str = None, *, reason: str = None):
