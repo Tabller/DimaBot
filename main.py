@@ -1,5 +1,6 @@
 import copy
-
+from datetime import datetime
+from datetime import timedelta
 import discord
 import ast
 import re
@@ -804,7 +805,10 @@ def parse_time(time_str: str) -> int:
     if not match:
         raise ValueError("какашно вводишь время")
     value, unit = match.groups()
-    return int(value) * time_units[unit]
+    if value < 99999:
+        return int(value) * time_units[unit]
+    else:
+        raise ValueError("какашно вводишь время")
 
 @client.hybrid_command(name = "клетка", with_app_command = True)
 @app_commands.describe(member="юзер")
@@ -866,6 +870,13 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
                 description = f"вы очевидно в чём-то провинились.",
                 color = discord.Color.blurple()
             )
+            now = datetime.now()
+            end_time = now + timedelta(seconds=time_in_seconds)
+            unix_timestamp = int(end_time.timestamp())
+
+
+            embed.add_field(name="Вы будете находиться здесь до:", value=f"{unix_timestamp}")
+
             if reason:
                 embed.add_field(name="здесь осталась записка. вот, кстати, её текст:", value=f"{reason}", inline=False)
                 embed.add_field(name="автор:", value=f"-{ctx.author}")
