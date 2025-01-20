@@ -812,15 +812,17 @@ def parse_time(time_str: str) -> int:
 async def клетка(ctx: commands.Context, member: discord.Member, time: str, bananas: str = None, *, reason: str = None):
     role = discord.utils.get(ctx.guild.roles, name=role_to_give)
     try:
-        if len(reason) < 1024:
+        if len(reason) < 1024 and reason is not None:
             pass
     except:
         await ctx.reply("что биографию свою пишешь чтоли")
+        return
+
 
 
     try:
         new_bananas = int(bananas)
-        if new_bananas <= 0:
+        if new_bananas <= 0 or new_bananas > 99999:
             raise ValueError("емае ну и хрень они пишут")
 
     except ValueError as e:
