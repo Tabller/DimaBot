@@ -178,7 +178,7 @@ async def help(ctx, member: discord.Member = None):
                           description='Здесь находится вся актуальная информация о ссылках, которые ведут на томата.',
                           colour=discord.Colour(int('a970ff', 16)))
     embed.add_field(name='Команды димы',
-                    value='\n`/submit [игра]` — Предложить игру для стрима в канал <#1185909058910310420> \n`/list` — Посмотреть список предложенных игр. \n`!balance` — Проверить свой карман (на наличие денег). \n`!fish` — Рыбалка симулятор. \n `!sell [эмодзи/inventory]` — Продать предмет(ы)/весь инвентарь \n `!клетка [упоминание пользователя] [время (s/m/h/d)] (причина) — Отправить человека в то самое место...',
+                    value='\n`/submit [игра]` — Предложить игру для стрима в канал <#1185909058910310420> \n`/list` — Посмотреть список предложенных игр. \n`!balance` — Проверить свой карман (на наличие денег). \n`!fish` — Рыбалка симулятор. \n `!sell [эмодзи/inventory]` — Продать предмет(ы)/весь инвентарь \n `!клетка [упоминание пользователя] [время (s/m/h/d)] (причина)` — Отправить человека в то самое место...',
                     inline=False)
 
     view = Menu()
@@ -809,7 +809,7 @@ def parse_time(time_str: str) -> int:
 @client.hybrid_command(name = "fart", with_app_command = True)
 @app_commands.describe(member="юзер")
 @commands.has_permissions(administrator = True)
-async def fart(ctx: commands.Context, member: discord.Member, time: str, *, reason: str = None):
+async def клетка(ctx: commands.Context, member: discord.Member, time: str, *, reason: str = None):
     role = discord.utils.get(ctx.guild.roles, name=role_to_give)
 
     if role in member.roles:
