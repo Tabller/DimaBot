@@ -816,8 +816,10 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
         new_bananas = int(bananas)
         if new_bananas <= 0:
             raise ValueError("емае ну и хрень они пишут")
+
     except ValueError as e:
         await ctx.reply("что за бред с бананами")
+        return
     if role in member.roles:
         await ctx.reply(f"{member.mention} уже там", ephemeral=True)
         return
