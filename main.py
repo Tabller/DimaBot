@@ -811,8 +811,11 @@ def parse_time(time_str: str) -> int:
 @commands.has_permissions(administrator = True)
 async def клетка(ctx: commands.Context, member: discord.Member, time: str, bananas: str = None, *, reason: str = None):
     role = discord.utils.get(ctx.guild.roles, name=role_to_give)
+
     try:
         new_bananas = int(bananas)
+        if new_bananas <= 0:
+            raise ValueError("емае ну и хрень они пишут")
     except ValueError as e:
         await ctx.reply("что за бред с бананами")
     if role in member.roles:
@@ -820,6 +823,8 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
         return
     try:
         time_in_seconds = parse_time(time)
+        if time_in_seconds <= 0:
+            raise ValueError("еперный театр")
     except ValueError as e:
         await ctx.reply("какашечно вводишь время")
         return
