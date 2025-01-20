@@ -805,7 +805,7 @@ def parse_time(time_str: str) -> int:
     if not match:
         raise ValueError("какашно вводишь время")
     value, unit = match.groups()
-    if value < 99999:
+    if int(value) < 99999:
         return int(value) * time_units[unit]
     else:
         raise ValueError("какашно вводишь время")
@@ -875,7 +875,7 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
             unix_timestamp = int(end_time.timestamp())
 
 
-            embed.add_field(name="Вы будете находиться здесь до:", value=f"{unix_timestamp}")
+            embed.add_field(name="Вы будете находиться здесь до:", value=f"<t:{unix_timestamp}>")
 
             if reason:
                 embed.add_field(name="здесь осталась записка. вот, кстати, её текст:", value=f"{reason}", inline=False)
