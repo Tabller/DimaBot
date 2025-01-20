@@ -811,7 +811,10 @@ def parse_time(time_str: str) -> int:
 @commands.has_permissions(administrator = True)
 async def клетка(ctx: commands.Context, member: discord.Member, time: str, bananas: str = None, *, reason: str = None):
     role = discord.utils.get(ctx.guild.roles, name=role_to_give)
-
+    try:
+        new_bananas = int(bananas)
+    except ValueError as e:
+        await ctx.reply("что за бред с бананами")
     if role in member.roles:
         await ctx.reply(f"{member.mention} уже там", ephemeral=True)
         return
@@ -827,7 +830,7 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
 
         # number_of_things = random.randint(500, 1000)
         if bananas:
-            number_of_things = int(bananas)
+            number_of_things = bananas
 
         names = ["бананов"]
         things = ["🍌"]
@@ -859,8 +862,9 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
             await channel.send(embed=embed)
 
         await asyncio.sleep(time_in_seconds)
-        await member.remove_roles(role)
-        await ctx.send(f"ёмаё, {member.mention} выпустили из обезяника")
+        if role in member.roles:
+            await member.remove_roles(role)
+            await ctx.send(f"ёмаё, {member.mention} выпустили из обезяника")
 
     except Exception as e:
         await ctx.reply(f"ну что за понос: {e}")
@@ -906,6 +910,7 @@ async def почистить(ctx, emoji):
                             if role in member.roles:
                                 await member.remove_roles(role)
                                 penalty_ref.child(str(ctx.author.id)).delete()
+                                await ctx.send(f"ёмаё, {member.mention} выпустили из обезяника")
     else:
         await ctx.reply("да нельзя щас")
 
