@@ -863,6 +863,7 @@ async def fart(ctx: commands.Context, member: discord.Member, time: str, *, reas
 
 @client.command()
 @commands.cooldown(1, 5, commands.BucketType.user)
+@commands.has_any_role(1330807076057911296)
 async def почистить(ctx, emoji):
     inventory_data = economy_ref.get()
     cool_list = []
@@ -896,9 +897,11 @@ async def почистить(ctx, emoji):
                     guild = ctx.guild
                     member = guild.get_member(int(ctx.author.id))
                     if member:
-                        role = discord.utils.get(guild.roles, name="мод на машинки")
+                        role = discord.utils.get(guild.roles, name="озезяна")
                         if role in member.roles:
                             await member.remove_roles(role)
+                            penalty_ref.child(str(ctx.author.id)).delete()
+
 
 
 
