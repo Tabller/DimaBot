@@ -22,7 +22,7 @@ import os
 from collections import Counter
 from string import digits
 from rsa.randnum import randint
-
+from discord import app_commands
 load_dotenv(dotenv_path='/root/DimaBot/.env')
 
 intents = discord.Intents.all()
@@ -43,6 +43,7 @@ firebase_admin.initialize_app(cred, {
 games_ref = db.reference('games')
 economy_ref = db.reference('economy')
 inventory_ref = db.reference('inventory')
+penalty_ref = db.reference('penalty')
 
 @client.event
 async def on_ready():
@@ -369,8 +370,8 @@ async def balance(ctx):
 
     for item_name, quantity in inventory_data.items():
         print(item_name)
-        if item_name == '👢':
-            embed.add_field(name = '👢', value = f'{quantity} шт')
+        if '👢' in item_name:
+            embed.add_field(name = '👢', value = f'{quantity} монет')
         if '🐟' in item_name:
             embed.add_field(name = '🐟', value = f'{quantity} см')
         if '🐠' in item_name:
@@ -379,6 +380,8 @@ async def balance(ctx):
             embed.add_field(name = '🐡', value = f'{quantity} см')
         if '🪼' in item_name:
             embed.add_field(name = '🪼', value = f'{quantity} см')
+        if '🍌' in item_name:
+            embed.add_field(name = '🍌', value = f'{quantity} монет')
     await ctx.send(embed = embed)
 active_games = {}
 
@@ -456,6 +459,10 @@ async def sell(ctx, item: str):
                             current_coins = user_data.get("coins", 0)
                             user_economy_ref.update({"coins": current_coins + sell_price})
                         if item == '👢' or '👢' in key:
+                            sell_price = int(value * 1)
+                            current_coins = user_data.get("coins", 0)
+                            user_economy_ref.update({"coins": current_coins + sell_price})
+                        if item == '🍌' or '🍌' in key:
                             sell_price = int(value * 1)
                             current_coins = user_data.get("coins", 0)
                             user_economy_ref.update({"coins": current_coins + sell_price})
@@ -681,20 +688,13 @@ async def fish(ctx):
                 inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
                 if inventory_data is None:
-                    inventory_ref.child(str(ctx.author.id)).set({'👢': 0})
-                    current_boots = 0
+                    inventory_ref.child(str(ctx.author.id)).set({'👢' + str(int(time.time() * 1000)): 5})
                 else:
-                    for item_name in inventory_data.items():
-                        if '👢' == item_name:
-                            current_boots = inventory_data['👢']
-                        else:
-                            inventory_ref.child(str(ctx.author.id)).update({'👢': 0})
-                            current_boots = 0
+                    inventory_ref.child(str(ctx.author.id)).update({'👢' + str(int(time.time() * 1000)): 5})
 
 
                 line = f'вы поймали грязный ботинок из австралии.'
 
-                new_inventory = inventory_ref.child(str(ctx.author.id)).update({'👢': current_boots + 1})
 
                 game_run = False
                 active_games.pop(user_id, None)
@@ -796,6 +796,112 @@ ITEMS = [
 
 ]
 
+role_to_give = "озезяна"
+
+def parse_time(time_str: str) -> int:
+    time_units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+    match = re.fullmatch(r"(\d+)([smhd])", time_str.lower())
+    if not match:
+        raise ValueError("какашно вводишь время")
+    value, unit = match.groups()
+    return int(value) * time_units[unit]
+
+@client.hybrid_command(name = "fart", with_app_command = True)
+@app_commands.describe(member="юзер")
+@commands.has_permissions(administrator = True)
+async def fart(ctx: commands.Context, member: discord.Member, time: str, *, reason: str = None):
+    role = discord.utils.get(ctx.guild.roles, name=role_to_give)
+
+    if role in member.roles:
+        await ctx.reply(f"{member.mention} уже там", ephemeral=True)
+        return
+    try:
+        time_in_seconds = parse_time(time)
+    except ValueError as e:
+        await ctx.reply("какашечно вводишь время")
+        return
+
+    try:
+        await member.add_roles(role)
+        await ctx.reply(f"отправляется в орангутан {member.mention}.")
+
+        number_of_things = random.randint(500, 1000)
+        names = ["бананов"]
+        things = ["🍌"]
+        thing = random.choice(things)
+        name = names[things.index(thing)]
+
+        user_penalty = penalty_ref.child(str(member.id)).get()
+
+        if user_penalty is None:
+            penalty_ref.child(str(member.id)).set({'penalty': number_of_things})
+        else:
+            penalty_ref.child(str(member.id)).update({'penalty': number_of_things})
+
+        channel = client.get_channel(1330805977011851315)
+        if channel:
+            embed = discord.Embed(
+                title = f"добро пожаловать в говнецо, {member}",
+                description = f"вы очевидно в чём-то провинились.",
+                color = discord.Color.blurple()
+            )
+            if reason:
+                embed.add_field(name="здесь осталась записка. вот, кстати, её текст:", value=f"{reason}", inline=False)
+                embed.add_field(name="автор:", value=f"-{ctx.author}")
+
+
+
+            embed.add_field(name=f"Чтобы выбраться отсюда, вам необходимо:", value=f"почистить {number_of_things} {name}, используя !почистить {thing}", inline=False)
+            await channel.send(embed=embed)
+
+        await asyncio.sleep(time_in_seconds)
+        await member.remove_roles(role)
+        await ctx.send(f"ёмаё, {member.mention} выпустили из обезяника")
+
+    except Exception as e:
+        await ctx.reply(f"ну что за понос: {e}")
+
+@client.command()
+@commands.cooldown(1, 5, commands.BucketType.user)
+async def почистить(ctx, emoji):
+    inventory_data = economy_ref.get()
+    cool_list = []
+    for id, inventory in inventory_data.items():
+        pass
+        cool_list.append(str(id))
+
+    user_id = random.choice(cool_list)
+
+    penalty_data = penalty_ref.child(str(ctx.author.id)).get()
+    current_penalty = int(penalty_data.get("penalty"))
+    if cool_list:
+        if emoji == "🍌":
+            user_data = inventory_ref.child(user_id).get()
+            if user_data is None:
+                inventory_ref.child(user_id).set({'🍌' + str(int(time.time() * 1000)): 10})
+            else:
+                new_banana = inventory_ref.child(user_id).update({
+                    '🍌' + str(int(time.time() * 1000)): 10
+                })
+
+            if current_penalty > 0:
+                new_penalty = max(0, current_penalty - 1)
+                penalty_ref.child(str(ctx.author.id)).update({"penalty": new_penalty})
+
+                await ctx.reply(f"вы почистили 🍌, осталось {new_penalty}")
+
+                if new_penalty == 0:
+                    guild = ctx.guild
+                    member = guild.get_member(int(ctx.author.id))
+                    if member:
+                        role = discord.utils.get(guild.roles, name="мод на машинки")
+                        if role in member.roles:
+                            await member.remove_roles(role)
+
+
+
+
+
 
 @client.command()
 @commands.cooldown(1, 6, commands.BucketType.user)
@@ -844,4 +950,5 @@ async def simulation3(ctx):
                           description=generate_game())
 
     message = await ctx.send(embed=embed, view=view)
+
 client.run(os.environ['BOT_TOKEN'])
