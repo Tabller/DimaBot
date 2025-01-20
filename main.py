@@ -811,6 +811,12 @@ def parse_time(time_str: str) -> int:
 @commands.has_permissions(administrator = True)
 async def клетка(ctx: commands.Context, member: discord.Member, time: str, bananas: str = None, *, reason: str = None):
     role = discord.utils.get(ctx.guild.roles, name=role_to_give)
+    try:
+        if len(reason) < 1024:
+            pass
+    except:
+        await ctx.reply("что биографию свою пишешь чтоли")
+
 
     try:
         new_bananas = int(bananas)
@@ -872,6 +878,7 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
         if role in member.roles:
             await member.remove_roles(role)
             await ctx.send(f"ёмаё, {member.mention} выпустили из обезяника")
+            penalty_ref.child(str(member.id)).delete()
 
     except Exception as e:
         await ctx.reply(f"ну что за понос: {e}")
