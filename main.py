@@ -809,7 +809,7 @@ def parse_time(time_str: str) -> int:
 @client.hybrid_command(name = "fart", with_app_command = True)
 @app_commands.describe(member="юзер")
 @commands.has_permissions(administrator = True)
-async def клетка(ctx: commands.Context, member: discord.Member, time: str, *, reason: str = None):
+async def клетка(ctx: commands.Context, member: discord.Member, time: str, bananas: str = None, *, reason: str = None):
     role = discord.utils.get(ctx.guild.roles, name=role_to_give)
 
     if role in member.roles:
@@ -825,18 +825,22 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
         await member.add_roles(role)
         await ctx.reply(f"отправляется в орангутан {member.mention}.")
 
-        number_of_things = random.randint(500, 1000)
+        # number_of_things = random.randint(500, 1000)
+        if bananas:
+            number_of_things = int(bananas)
+
         names = ["бананов"]
         things = ["🍌"]
         thing = random.choice(things)
         name = names[things.index(thing)]
 
-        user_penalty = penalty_ref.child(str(member.id)).get()
+        if bananas:
+            user_penalty = penalty_ref.child(str(member.id)).get()
 
-        if user_penalty is None:
-            penalty_ref.child(str(member.id)).set({'penalty': number_of_things})
-        else:
-            penalty_ref.child(str(member.id)).update({'penalty': number_of_things})
+            if user_penalty is None:
+                penalty_ref.child(str(member.id)).set({'penalty': int(bananas)})
+            else:
+                penalty_ref.child(str(member.id)).update({'penalty': int(bananas)})
 
         channel = client.get_channel(1330805977011851315)
         if channel:
@@ -850,8 +854,8 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
                 embed.add_field(name="автор:", value=f"-{ctx.author}")
 
 
-
-            embed.add_field(name=f"Чтобы выбраться отсюда, вам необходимо:", value=f"почистить {number_of_things} {name}, используя !почистить {thing}", inline=False)
+            if bananas:
+                embed.add_field(name=f"Чтобы выбраться отсюда, вам необходимо:", value=f"почистить {number_of_things} {name}, используя !почистить {thing}", inline=False)
             await channel.send(embed=embed)
 
         await asyncio.sleep(time_in_seconds)
@@ -877,30 +881,33 @@ async def почистить(ctx, emoji):
 
     penalty_data = penalty_ref.child(str(ctx.author.id)).get()
     current_penalty = int(penalty_data.get("penalty"))
-    if cool_list:
-        if emoji == "🍌":
-            user_data = inventory_ref.child(user_id).get()
-            if user_data is None:
-                inventory_ref.child(user_id).set({'🍌' + str(int(time.time() * 1000)): 1})
-            else:
-                new_banana = inventory_ref.child(user_id).update({
-                    '🍌' + str(int(time.time() * 1000)): 1
-                })
+    if current_penalty:
+        if cool_list:
+            if emoji == "🍌":
+                user_data = inventory_ref.child(user_id).get()
+                if user_data is None:
+                    inventory_ref.child(user_id).set({'🍌' + str(int(time.time() * 1000)): 1})
+                else:
+                    new_banana = inventory_ref.child(user_id).update({
+                        '🍌' + str(int(time.time() * 1000)): 1
+                    })
 
-            if current_penalty > 0:
-                new_penalty = max(0, current_penalty - 1)
-                penalty_ref.child(str(ctx.author.id)).update({"penalty": new_penalty})
+                if current_penalty > 0:
+                    new_penalty = max(0, current_penalty - 1)
+                    penalty_ref.child(str(ctx.author.id)).update({"penalty": new_penalty})
 
-                await ctx.reply(f"вы почистили 🍌, осталось {new_penalty}")
+                    await ctx.reply(f"вы почистили 🍌, осталось {new_penalty}")
 
-                if new_penalty == 0:
-                    guild = ctx.guild
-                    member = guild.get_member(int(ctx.author.id))
-                    if member:
-                        role = discord.utils.get(guild.roles, name="озезяна")
-                        if role in member.roles:
-                            await member.remove_roles(role)
-                            penalty_ref.child(str(ctx.author.id)).delete()
+                    if new_penalty == 0:
+                        guild = ctx.guild
+                        member = guild.get_member(int(ctx.author.id))
+                        if member:
+                            role = discord.utils.get(guild.roles, name="озезяна")
+                            if role in member.roles:
+                                await member.remove_roles(role)
+                                penalty_ref.child(str(ctx.author.id)).delete()
+    else:
+        await ctx.reply("да нельзя щас")
 
 
 
