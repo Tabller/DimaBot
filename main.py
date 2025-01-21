@@ -2,7 +2,6 @@ import copy
 from datetime import datetime
 from datetime import timedelta
 from tkinter.ttk import Button
-
 import discord
 import ast
 import re
@@ -179,12 +178,34 @@ async def help(ctx, member: discord.Member = None):
     name = member.display_name
     pfp = member.display_avatar
 
+    commands_twitch = {
+        "/submit [игра]": "Предложить игру для стрима в канал <#1185909058910310420>",
+        "/list": "Посмотреть список предложенных игр."
+    }
+    commands_rpg = {
+        "!balance": "Проверить свой карман (на наличие денег).",
+        "!fish": "Рыбалка симулятор.",
+        "!sell [эмодзи/inventory]": "Продать предмет(ы)/весь инвентарь",
+        "!leaderboard": "Просмотр таблицы монет"
+    }
+    commands_admin = {
+        "!клетка [упоминание пользователя] [время [s/m/h/d]] (бананы) (причина)": "Отправить человека в то самое место..."
+    }
+
     embed = discord.Embed(title='димабот ft. Томатские Угодья',
                           description='Здесь находится вся актуальная информация о ссылках, которые ведут на томата.',
                           colour=discord.Colour(int('a970ff', 16)))
-    embed.add_field(name='Команды димы',
-                    value='\n`/submit [игра]` — Предложить игру для стрима в канал <#1185909058910310420> \n`/list` — Посмотреть список предложенных игр. \n`!balance` — Проверить свой карман (на наличие денег). \n`!fish` — Рыбалка симулятор. \n `!sell [эмодзи/inventory]` — Продать предмет(ы)/весь инвентарь \n `!клетка [упоминание пользователя] [время (s/m/h/d)] (бананы) (причина)` — Отправить человека в то самое место...',
-                    inline=False)
+
+    embed.add_field(name="Команды категории Твич", value="дима подписчик", inline=True)
+    for command, description in commands_twitch.items():
+        embed.add_field(name=f"`{command}`", value=f"{description}", inline=False)
+    embed.add_field(name="Команды категории Экономика", value="дима рпг игра", inline=True)
+    for command, description in commands_rpg.items():
+        embed.add_field(name=f"`{command}`", value=f"{description}", inline=False)
+    embed.add_field(name="Команды категории Администрация", value="дима с молотком бана", inline=True)
+    for command, description in commands_admin.items():
+        embed.add_field(name=f"`{command}`", value=f"{description}", inline=False)
+
 
     view = Menu()
     view.add_item(
@@ -831,7 +852,6 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
 
 
 
-
     try:
         new_bananas = int(bananas)
         if new_bananas <= 0 or new_bananas > 99999:
@@ -909,7 +929,12 @@ async def leaderboard(ctx):
     users_data = economy_ref.get()
     cool_dict = {}
     for user_id, money in users_data.items():
-        cool_dict[user_id] = money
+        try:
+            user = await client.fetch_user(int(user_id))
+            new_user = user.name
+        except discord.NotFound:
+            new_user = user_id
+        cool_dict[new_user] = int(money.get("coins"))
 
     def get_sorted():
         return sorted(cool_dict.items(), key=lambda x: x[1], reverse=True)
@@ -920,13 +945,14 @@ async def leaderboard(ctx):
         end = start + per_page
         leaderboard_page = sorted_data[start:end]
 
+
         embed = discord.Embed(
             title="Великий Лидерборд",
             description= "вот они слева направо:",
             color=discord.Color.dark_gold()
         )
-        for i, (userid, score) in enumerate(leaderboard_page, start=start + 1):
-            embed.add_field(name=f"{i}. <@{userid}>", value=f"{score} монеток", inline=False)
+        for i, (name, score) in enumerate(leaderboard_page, start=start + 1):
+            embed.add_field(name=f"{i}. {name}", value=f"{score} монеток", inline=False)
         embed.set_footer(
             text=f"страница {page}/{(len(sorted_data) + per_page - 1) // per_page}"
         )
@@ -938,25 +964,25 @@ async def leaderboard(ctx):
     embed = get_leaderboard_page(current_page, per_page)
 
     class LeaderboardView(discord.ui.View):
-        def __init__(self):
-            super().__init__(timeout=60)
+        def __init__(self, timeout=60):
+            super().__init__(timeout=timeout)
 
         @discord.ui.button(label="Предыдущая страница", style=discord.ButtonStyle.primary)
-        async def previous_page(self, interaction: discord.Interaction, button: Button):
+        async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
             nonlocal current_page
             if current_page > 1:
                 current_page -= 1
                 await interaction.response.edit_message(embed=get_leaderboard_page(current_page, per_page), view=self)
 
         @discord.ui.button(label="Следующая страница", style=discord.ButtonStyle.primary)
-        async def next_page(self, interaction: discord.Interaction, button: Button):
+        async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
             nonlocal current_page
             max_pages = (len(get_sorted()) + per_page - 1) // per_page
             if current_page < max_pages:
                 current_page += 1
                 await interaction.response.edit_message(embed=get_leaderboard_page(current_page, per_page), view=self)
 
-    await ctx.send(embed=embed, view=LeaderboardView)
+    await ctx.send(embed=embed, view=LeaderboardView())
 @client.command()
 @commands.cooldown(1, 5, commands.BucketType.user)
 @commands.has_any_role(1330807076057911296)
