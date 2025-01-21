@@ -28,7 +28,7 @@ from google_crc32c.python import value
 from rsa.randnum import randint
 from discord import app_commands
 import logging
-
+# new comment
 logging.basicConfig(filename='/root/DimaBot/dimabot.log', level=logging.DEBUG)
 
 logging.debug("Dimabot starting...")
