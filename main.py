@@ -377,21 +377,30 @@ async def feedback(ctx, *, text):
 
 @client.command()
 @commands.cooldown(1, 10, commands.BucketType.user)
-async def balance(ctx):
-    user_data = economy_ref.child(str(ctx.author.id)).get()
+async def balance(ctx, member: discord.Member = None):
+
+    if member:
+        user_data = economy_ref.child(str(member.id)).get()
+        user_name = member.display_name
+    else:
+        user_data = economy_ref.child(str(ctx.author.id)).get()
+        user_name = ctx.author.display_name
 
     karman = user_data['coins']
 
-    inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+    if member:
+        inventory_data = inventory_ref.child(str(member.id)).get()
+    else:
+        inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
     if inventory_data is None:
-        embed = discord.Embed(title=f'Карман Игрока {ctx.author.display_name}',
+        embed = discord.Embed(title=f'Карман Игрока {user_name}',
                               colour=discord.Colour(int('5BC1FF', 16)))
         embed.add_field(name='Монетки', value=karman)
         await ctx.send(embed=embed)
 
 
-    embed = discord.Embed(title=f'Карман Игрока {ctx.author.display_name}', colour=discord.Colour(int('5BC1FF', 16)))
+    embed = discord.Embed(title=f'Карман Игрока {user_name}', colour=discord.Colour(int('5BC1FF', 16)))
     embed.add_field(name = 'Монетки', value = karman)
 
     for item_name, quantity in inventory_data.items():
@@ -931,7 +940,7 @@ async def leaderboard(ctx):
     for user_id, money in users_data.items():
         try:
             user = await client.fetch_user(int(user_id))
-            new_user = user.name
+            new_user = user.display_name
         except discord.NotFound:
             new_user = user_id
         cool_dict[new_user] = int(money.get("coins"))
