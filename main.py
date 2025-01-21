@@ -27,6 +27,11 @@ from string import digits
 from google_crc32c.python import value
 from rsa.randnum import randint
 from discord import app_commands
+import logging
+
+logging.basicConfig(filename='/root/DimaBot/dimabot.log', level=logging.DEBUG)
+
+logging.debug("Dimabot starting...")
 load_dotenv(dotenv_path='/root/DimaBot/.env')
 
 intents = discord.Intents.all()
