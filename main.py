@@ -398,8 +398,10 @@ async def sell(ctx, item: str):
     for item_name, quantity in inventory_data.items():
         dictionary[item_name] = quantity
 
-
-
+    cm = "см"
+    normal_stuff = ['👢', '🍌']
+    if item in normal_stuff:
+        cm = "монет"
 
     what_to_sell = {}
     for item_name, quantity in dictionary.items():
@@ -409,10 +411,6 @@ async def sell(ctx, item: str):
     if len(what_to_sell) >= 1:
 
         if len(what_to_sell) > 1 and item != "inventory":
-            normal_stuff = ['👢', '🍌']
-            cm = "см"
-            if item in normal_stuff:
-                cm = "монет"
 
 
 
@@ -432,7 +430,7 @@ async def sell(ctx, item: str):
 
                 selected_item = response.content
                 if response.content != "всё":
-                    await ctx.send(f"окей, ща продадим {item}: {selected_item} см")
+                    await ctx.send(f"окей, ща продадим {item}: {selected_item} {cm}")
             else:
                 selected_item = "всё"
 
