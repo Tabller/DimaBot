@@ -1,6 +1,8 @@
 import copy
 from datetime import datetime
 from datetime import timedelta
+from tkinter.ttk import Button
+
 import discord
 import ast
 import re
@@ -22,6 +24,8 @@ from dotenv import load_dotenv
 import os
 from collections import Counter
 from string import digits
+
+from google_crc32c.python import value
 from rsa.randnum import randint
 from discord import app_commands
 load_dotenv(dotenv_path='/root/DimaBot/.env')
@@ -816,7 +820,7 @@ def parse_time(time_str: str) -> int:
         raise ValueError("какашно вводишь время")
 
 @client.hybrid_command(name = "клетка", with_app_command = True)
-@app_commands.describe(member="юзер")
+@app_commands.describe(member="юзер", time="время (s/m/h/d)")
 @commands.has_permissions(administrator = True)
 async def клетка(ctx: commands.Context, member: discord.Member, time: str, bananas: str = None, *, reason: str = None):
     role = discord.utils.get(ctx.guild.roles, name=role_to_give)
@@ -900,6 +904,59 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
     except Exception as e:
         await ctx.reply(f"ну что за понос: {e}")
 
+@client.hybrid_command(name = "leaderboard", with_app_command = True)
+async def leaderboard(ctx):
+    users_data = economy_ref.get()
+    cool_dict = {}
+    for user_id, money in users_data.items():
+        cool_dict[user_id] = money
+
+    def get_sorted():
+        return sorted(cool_dict.items(), key=lambda x: x[1], reverse=True)
+
+    def get_leaderboard_page(page: int, per_page: int = 10):
+        sorted_data = get_sorted()
+        start = (page - 1) * per_page
+        end = start + per_page
+        leaderboard_page = sorted_data[start:end]
+
+        embed = discord.Embed(
+            title="Великий Лидерборд",
+            description= "вот они слева направо:",
+            color=discord.Color.dark_gold()
+        )
+        for i, (userid, score) in enumerate(leaderboard_page, start=start + 1):
+            embed.add_field(name=f"{i}. <@{userid}>", value=f"{score} монеток", inline=False)
+        embed.set_footer(
+            text=f"страница {page}/{(len(sorted_data) + per_page - 1) // per_page}"
+        )
+        return embed
+
+    current_page = 1
+    per_page = 10
+
+    embed = get_leaderboard_page(current_page, per_page)
+
+    class LeaderboardView(discord.ui.View):
+        def __init__(self):
+            super().__init__(timeout=60)
+
+        @discord.ui.button(label="Предыдущая страница", style=discord.ButtonStyle.primary)
+        async def previous_page(self, interaction: discord.Interaction, button: Button):
+            nonlocal current_page
+            if current_page > 1:
+                current_page -= 1
+                await interaction.response.edit_message(embed=get_leaderboard_page(current_page, per_page), view=self)
+
+        @discord.ui.button(label="Следующая страница", style=discord.ButtonStyle.primary)
+        async def next_page(self, interaction: discord.Interaction, button: Button):
+            nonlocal current_page
+            max_pages = (len(get_sorted()) + per_page - 1) // per_page
+            if current_page < max_pages:
+                current_page += 1
+                await interaction.response.edit_message(embed=get_leaderboard_page(current_page, per_page), view=self)
+
+    await ctx.send(embed=embed, view=LeaderboardView)
 @client.command()
 @commands.cooldown(1, 5, commands.BucketType.user)
 @commands.has_any_role(1330807076057911296)
