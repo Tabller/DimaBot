@@ -1,7 +1,7 @@
 import copy
 from datetime import datetime
 from datetime import timedelta
-from tkinter.ttk import Button
+# from tkinter.ttk import Button
 import discord
 import ast
 import re
@@ -939,14 +939,27 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
     except Exception as e:
         await ctx.reply(f"ну что за понос: {e}")
 
+
+
+
 @client.hybrid_command(name = "leaderboard", with_app_command = True)
 async def leaderboard(ctx):
     users_data = economy_ref.get()
     cool_dict = {}
+
+    async def get_user(user_cool_id):
+        if not user_cool_id in cool_dict:
+            try:
+                user = await client.fetch_user(int(user_cool_id))
+                cool_dict[user_cool_id] = user.display_name
+            except discord.NotFound:
+                cool_dict[user_cool_id] = user_cool_id
+        return cool_dict[user_cool_id]
+
+
     for user_id, money in users_data.items():
         try:
-            user = await client.fetch_user(int(user_id))
-            new_user = user.display_name
+            new_user = get_user(user_id).display_name
         except discord.NotFound:
             new_user = user_id
         cool_dict[new_user] = int(money.get("coins"))
