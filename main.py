@@ -29,10 +29,6 @@ from rsa.randnum import randint
 from discord import app_commands
 import logging
 
-# тест
-logging.basicConfig(filename='/root/DimaBot/dimabot.log', level=logging.DEBUG)
-
-logging.debug("Dimabot starting...")
 load_dotenv(dotenv_path='/root/DimaBot/.env')
 
 intents = discord.Intents.all()
@@ -940,32 +936,29 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
         await ctx.reply(f"ну что за понос: {e}")
 
 
+cool_dict = {}
+
+
+async def get_user(user_cool_id):
+    if not user_cool_id in cool_dict:
+        try:
+            user = await client.fetch_user(int(user_cool_id))
+            cool_dict[user_cool_id] = user.display_name
+        except discord.NotFound:
+            cool_dict[user_cool_id] = user_cool_id
+    return cool_dict[user_cool_id]
 
 
 @client.hybrid_command(name = "leaderboard", with_app_command = True)
 async def leaderboard(ctx):
     users_data = economy_ref.get()
-    cool_dict = {}
-
-    async def get_user(user_cool_id):
-        if not user_cool_id in cool_dict:
-            try:
-                user = await client.fetch_user(int(user_cool_id))
-                cool_dict[user_cool_id] = user.display_name
-            except discord.NotFound:
-                cool_dict[user_cool_id] = user_cool_id
-        return cool_dict[user_cool_id]
-
-
+    users = {}
     for user_id, money in users_data.items():
-        try:
-            new_user = get_user(user_id).display_name
-        except discord.NotFound:
-            new_user = user_id
-        cool_dict[new_user] = int(money.get("coins"))
+        user_cool_id = await get_user(user_id)
+        users[user_cool_id] = int(money.get("coins"))
 
     def get_sorted():
-        return sorted(cool_dict.items(), key=lambda x: x[1], reverse=True)
+        return sorted(users.items(), key=lambda x: x[1], reverse=True)
 
     def get_leaderboard_page(page: int, per_page: int = 10):
         sorted_data = get_sorted()
