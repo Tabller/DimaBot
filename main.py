@@ -178,6 +178,7 @@ async def help(ctx, member: discord.Member = None):
     name = member.display_name
     pfp = member.display_avatar
 
+    #великий сборник команд
     commands_twitch = {
         "/submit [игра]": "Предложить игру для стрима в канал <#1185909058910310420>",
         "/list": "Посмотреть список предложенных игр."
