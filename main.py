@@ -856,6 +856,9 @@ def parse_time(time_str: str) -> int:
 @commands.has_permissions(administrator = True)
 async def клетка(ctx: commands.Context, member: discord.Member, time: str, bananas: str = None, *, reason: str = None):
     role = discord.utils.get(ctx.guild.roles, name=role_to_give)
+    players = discord.utils.get(ctx.guild.roles, name="Игроки")
+    unplayers = discord.utils.get(ctx.guild.roles, name="Не игроки")
+    saved_roles = member.roles
     if reason is not None:
         if len(reason) > 1024:
             await ctx.reply("что биографию свою пишешь чтоли")
@@ -884,6 +887,12 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
 
     try:
         await member.add_roles(role)
+        try:
+            await member.remove_roles(players)
+            await member.remove_roles(unplayers)
+        except:
+            pass
+
         await ctx.reply(f"отправляется в орангутан {member.mention}.")
 
         # number_of_things = random.randint(500, 1000)
@@ -929,6 +938,10 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
         await asyncio.sleep(time_in_seconds)
         if role in member.roles:
             await member.remove_roles(role)
+            if players in saved_roles:
+                await member.add_roles(players)
+            else:
+                await member.add_roles(unplayers)
             await ctx.send(f"ёмаё, {member.mention} выпустили из обезяника")
             penalty_ref.child(str(member.id)).delete()
 
