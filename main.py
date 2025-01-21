@@ -409,9 +409,16 @@ async def sell(ctx, item: str):
     if len(what_to_sell) >= 1:
 
         if len(what_to_sell) > 1 and item != "inventory":
+            normal_stuff = ['👢', '🍌']
+            cm = "см"
+            if item in normal_stuff:
+                cm = "монет"
+
+
+
             await ctx.send(
                 f"ничего себе, у тебя несколько '{item}'. выбери чё продать из этого:\n" +
-                "\n".join([f"- {item}: {value} см" for name, value in what_to_sell.items()])
+                "\n".join([f"- {item}: {value} {cm}" for name, value in what_to_sell.items()])
             )
 
             msg = await ctx.send('или напиши "всё" если хочешь продать всё сразу')
