@@ -29,6 +29,7 @@ from rsa.randnum import randint
 from discord import app_commands
 import logging
 
+# тест
 logging.basicConfig(filename='/root/DimaBot/dimabot.log', level=logging.DEBUG)
 
 logging.debug("Dimabot starting...")
