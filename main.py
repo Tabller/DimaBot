@@ -543,95 +543,42 @@ async def fish(ctx):
 
     active_games[user_id] = True
 
+    class FishGame():
 
-    user_data = economy_ref.child(str(ctx.author.id)).get()
-    inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+        def __init__(self):
+            user_data = economy_ref.child(str(ctx.author.id)).get()
+            inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
-    if user_data is None:
-        economy_ref.child(ctx.author.id).set({'coins': 0})
+            if user_data is None:
+                economy_ref.child(ctx.author.id).set({'coins': 0})
+            self.how_many = random.randint(1, 3)
+            self.game_run = True
 
-    game_run = True
+            self.map_one_coordinates = [["◼️", "◼️", "◼️", "◼️", "◼️", "☀️", "◼️"],
+                                   ["◼️", "◼️", "◼️", "◼️", "◼️", "◼️", "◼️"],
+                                   ["◼️", "◼️", "◼️", "🛶", "◼️", "◼️", "◼️"],
+                                   ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
+                                   ["🟦", "🟦", "🟦", "🪝", "🟦", "🟦", "🟦"],
+                                   ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
+                                   ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
+                                   ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
+                                   ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
+                                   ["🟦", "🟦", "🟦", "🟦", "🟦", "🪸", "🟦"],
+                                   ["🟨", "🪸", "🟦", "🟦", "🟨", "🟨", "🟨"],
+                                   ["🟨", "🟨", "🟨", "🟨", "🟨", "🟨", "🟨"]]
 
-    map_one_coordinates = [["◼️", "◼️", "◼️", "◼️", "◼️", "☀️", "◼️"],
-                           ["◼️", "◼️", "◼️", "◼️", "◼️", "◼️", "◼️"],
-                           ["◼️", "◼️", "◼️", "🛶", "◼️", "◼️", "◼️"],
-                           ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
-                           ["🟦", "🟦", "🟦", "🪝", "🟦", "🟦", "🟦"],
-                           ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
-                           ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
-                           ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
-                           ["🟦", "🟦", "🟦", "🟦", "🟦", "🟦", "🟦"],
-                           ["🟦", "🟦", "🟦", "🟦", "🟦", "🪸", "🟦"],
-                           ["🟨", "🪸", "🟦", "🟦", "🟨", "🟨", "🟨"],
-                           ["🟨", "🟨", "🟨", "🟨", "🟨", "🟨", "🟨"]]
-    global previous_hook
-    global previous_boat
-    previous_hook = [4, 3]
-    previous_boat = [2, 3]
+            #global previous_hook
+            #global previous_boat
 
-    def map_print():
-        # map_one_coordinates, fish_coord = spawn_fish()
-        global line
-        count = 0
-        line = ''
-        for row in map_one_coordinates:
-            for emoji in row:
-                if count < 7:
+            self.previous_hook = [4, 3]
+            self.previous_boat = [2, 3]
 
-                    line = line + f''.join(emoji)
-                    count += 1
-                else:
-                    line = line + f''.join('\n')
-                    line = line + f''.join(emoji)
-                    count = 1
-        return line
-
-    def move_boat(x,y, new_x):
-        global raw_map
-        raw_map = map_one_coordinates
-        what_to_change = map_one_coordinates[y][x+new_x]
-        raw_map[y][x + new_x] = "🛶"
-        raw_map[y][x] = what_to_change
-        previous_boat[1] += new_x
-        return raw_map
-
-    def spawn_fish():
-
-        choice_x = [0, 6]
-        choice_y = [5, 8]
-        fish_emojis = ['🐟', '🐠', '🐡', '🪼', '👢']
-        # fish_emojis = ['👢']
-        global raw_map
-        raw_map = map_one_coordinates
-        fish_y = random.choice(choice_y)
-        fish_x = random.choice(choice_x)
-        fish_coords = [fish_y, fish_x]
-        raw_map[fish_y][fish_x] = random.choice(fish_emojis)
-
-        print(raw_map, fish_coords)
-        return raw_map, fish_coords
-
-    how_many = random.randint(1,3)
-
-    for i in range(how_many):
-        spawn_fish()
-
-    def change_coord(x, y, new_x, new_y):
-        # if previous_hook[0] > 3 or new_y == -1:
-        # global game_run
-        global raw_map
-        what_to_change = map_one_coordinates[y+new_y][x+new_x]
-        if (what_to_change != "🟨") and (what_to_change != "🪸") and (what_to_change != "◼️") and (what_to_change != "🛶") and (what_to_change != '🐟') and (what_to_change != '🐠') and (what_to_change != '🐡') and (what_to_change != '🪼') and (what_to_change != '👢'):
-            raw_map = move_boat(previous_boat[1], previous_boat[0], new_x)
-            # raw_map = map_one_coordinates
-            raw_map[y+new_y][x+new_x] = "🪝"
-            raw_map[y][x] = what_to_change
-            previous_hook[0] += new_y
-            previous_hook[1] += new_x
+        def map_print(self):
+            # map_one_coordinates, fish_coord = spawn_fish()
             global line
             count = 0
             line = ''
-            for row in raw_map:
+            for row in self.map_one_coordinates:
                 for emoji in row:
                     if count < 7:
 
@@ -642,128 +589,191 @@ async def fish(ctx):
                         line = line + f''.join(emoji)
                         count = 1
             return line
-        else:
 
-            if what_to_change == '🐟':
-                cm = random.randint(1, 100)
-                line = f'вы поймали карася размером {cm} сантиметров'
-                # base 5 * cm / 10
-                # current_coins = user_data.get('coins', 0)
-                # new_coins = current_coins + 5 * (cm / 10)
-                # economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+        def move_boat(self, x, y, new_x):
+            global raw_map
+            raw_map = self.map_one_coordinates
+            what_to_change = self.map_one_coordinates[y][x+new_x]
+            raw_map[y][x + new_x] = "🛶"
+            raw_map[y][x] = what_to_change
+            self.previous_boat[1] += new_x
+            return raw_map
 
-                inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
-                if inventory_data is None:
-                    inventory_ref.child(str(ctx.author.id)).set({'🐟' + str(int(time.time() * 1000)): cm})
-                else:
-                    current_fish = inventory_ref.child(str(ctx.author.id)).update({
-                        '🐟' + str(int(time.time() * 1000)): cm
-                    })
 
-                game_run = False
-                active_games.pop(user_id, None)
+        def spawn_fish(self):
+
+            choice_x = [0, 6]
+            choice_y = [5, 8]
+            fish_emojis = ['🐟', '🐠', '🐡', '🪼', '👢']
+            # fish_emojis = ['👢']
+            global raw_map
+            raw_map = self.map_one_coordinates
+            fish_y = random.choice(choice_y)
+            fish_x = random.choice(choice_x)
+            fish_coords = [fish_y, fish_x]
+            raw_map[fish_y][fish_x] = random.choice(fish_emojis)
+
+
+            return raw_map, fish_coords
+
+
+
+        def change_coord(self, x, y, new_x, new_y):
+            # if previous_hook[0] > 3 or new_y == -1:
+            # global game_run
+            global raw_map
+            what_to_change = self.map_one_coordinates[y+new_y][x+new_x]
+            if (what_to_change != "🟨") and (what_to_change != "🪸") and (what_to_change != "◼️") and (what_to_change != "🛶") and (what_to_change != '🐟') and (what_to_change != '🐠') and (what_to_change != '🐡') and (what_to_change != '🪼') and (what_to_change != '👢'):
+                raw_map = self.move_boat(self.previous_boat[1], self.previous_boat[0], new_x)
+                # raw_map = map_one_coordinates
+                raw_map[y+new_y][x+new_x] = "🪝"
+                raw_map[y][x] = what_to_change
+                self.previous_hook[0] += new_y
+                self.previous_hook[1] += new_x
+                global line
+                count = 0
+                line = ''
+                for row in raw_map:
+                    for emoji in row:
+                        if count < 7:
+
+                            line = line + f''.join(emoji)
+                            count += 1
+                        else:
+                            line = line + f''.join('\n')
+                            line = line + f''.join(emoji)
+                            count = 1
                 return line
-            if what_to_change == '🐠':
-                cm = random.randint(1, 100)
-                line = f'вы поймали брата карася размером {cm} сантиметров'
-                # base 6 * cm / 10
-                # current_coins = user_data.get('coins', 0)
-                # new_coins = current_coins + 6 * (cm / 10)
-                # economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+            else:
 
-                inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+                if what_to_change == '🐟':
+                    cm = random.randint(1, 100)
+                    line = f'вы поймали карася размером {cm} сантиметров'
+                    # base 5 * cm / 10
+                    # current_coins = user_data.get('coins', 0)
+                    # new_coins = current_coins + 5 * (cm / 10)
+                    # economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
 
-                if inventory_data is None:
-                    inventory_ref.child(str(ctx.author.id)).set({'🐠' + str(int(time.time() * 1000)): cm})
-                else:
-                    current_tropical_fish = inventory_ref.child(str(ctx.author.id)).update({
-                        '🐠' + str(int(time.time() * 1000)): cm
-                    })
+                    inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
-                game_run = False
-                active_games.pop(user_id, None)
-                return line
-            if what_to_change == '🐡':
-                cm = random.randint(1, 100)
-                line = f'вы поймали рыбу агу ага размером {cm} сантиметров'
-                # base 8 * cm / 10
-                # current_coins = user_data.get('coins', 0)
-                # new_coins = current_coins + 8 * (cm / 10)
-                # economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
-
-                inventory_data = inventory_ref.child(str(ctx.author.id)).get()
-
-                if inventory_data is None:
-                    inventory_ref.child(str(ctx.author.id)).set({'🐡' + str(int(time.time() * 1000)): cm})
-                else:
-                    current_blowfish = inventory_ref.child(str(ctx.author.id)).update({
-                        '🐡' + str(int(time.time() * 1000)): cm
-                    })
-
-
-                game_run = False
-                active_games.pop(user_id, None)
-                return line
-            if what_to_change == '🪼':
-                cm = random.randint(1, 100)
-                line = f'вы поймали медузу крутую размером {cm} сантиметров'
-                # base 10 * cm / 10
-                # current_coins = user_data.get('coins', 0)
-                # new_coins = current_coins + 10 * (cm/10)
-                #economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
-
-                inventory_data = inventory_ref.child(str(ctx.author.id)).get()
-
-                if inventory_data is None:
-                    inventory_ref.child(str(ctx.author.id)).set({'🪼' + str(int(time.time() * 1000)): cm})
-                else:
-                    current_jellyfish = inventory_ref.child(str(ctx.author.id)).update({
-                        '🪼' + str(int(time.time() * 1000)): cm
-                    })
-
-                game_run = False
-                active_games.pop(user_id, None)
-                return line
-
-            if what_to_change == '👢':
-                inventory_data = inventory_ref.child(str(ctx.author.id)).get()
-
-                if inventory_data is None:
-                    inventory_ref.child(str(ctx.author.id)).set({'👢' + str(int(time.time() * 1000)): 5})
-                else:
-                    inventory_ref.child(str(ctx.author.id)).update({'👢' + str(int(time.time() * 1000)): 5})
-
-
-                line = f'вы поймали грязный ботинок из австралии.'
-
-
-                game_run = False
-                active_games.pop(user_id, None)
-                return line
-
-            count = 0
-            line = ''
-            for row in raw_map:
-                for emoji in row:
-                    if count < 7:
-                        line = line + f''.join(emoji)
-                        count += 1
+                    if inventory_data is None:
+                        inventory_ref.child(str(ctx.author.id)).set({'🐟' + str(int(time.time() * 1000)): cm})
                     else:
-                        line = line + f''.join('\n')
-                        line = line + f''.join(emoji)
-                        count = 1
-            return line
+                        current_fish = inventory_ref.child(str(ctx.author.id)).update({
+                            '🐟' + str(int(time.time() * 1000)): cm
+                        })
+
+                    game_run = False
+                    active_games.pop(user_id, None)
+                    return line
+                if what_to_change == '🐠':
+                    cm = random.randint(1, 100)
+                    line = f'вы поймали брата карася размером {cm} сантиметров'
+                    # base 6 * cm / 10
+                    # current_coins = user_data.get('coins', 0)
+                    # new_coins = current_coins + 6 * (cm / 10)
+                    # economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+
+                    inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+
+                    if inventory_data is None:
+                        inventory_ref.child(str(ctx.author.id)).set({'🐠' + str(int(time.time() * 1000)): cm})
+                    else:
+                        current_tropical_fish = inventory_ref.child(str(ctx.author.id)).update({
+                            '🐠' + str(int(time.time() * 1000)): cm
+                        })
+
+                    game_run = False
+                    active_games.pop(user_id, None)
+                    return line
+                if what_to_change == '🐡':
+                    cm = random.randint(1, 100)
+                    line = f'вы поймали рыбу агу ага размером {cm} сантиметров'
+                    # base 8 * cm / 10
+                    # current_coins = user_data.get('coins', 0)
+                    # new_coins = current_coins + 8 * (cm / 10)
+                    # economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+
+                    inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+
+                    if inventory_data is None:
+                        inventory_ref.child(str(ctx.author.id)).set({'🐡' + str(int(time.time() * 1000)): cm})
+                    else:
+                        current_blowfish = inventory_ref.child(str(ctx.author.id)).update({
+                            '🐡' + str(int(time.time() * 1000)): cm
+                        })
+
+
+                    game_run = False
+                    active_games.pop(user_id, None)
+                    return line
+                if what_to_change == '🪼':
+                    cm = random.randint(1, 100)
+                    line = f'вы поймали медузу крутую размером {cm} сантиметров'
+                    # base 10 * cm / 10
+                    # current_coins = user_data.get('coins', 0)
+                    # new_coins = current_coins + 10 * (cm/10)
+                    #economy_ref.child(str(ctx.author.id)).update({'coins': new_coins})
+
+                    inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+
+                    if inventory_data is None:
+                        inventory_ref.child(str(ctx.author.id)).set({'🪼' + str(int(time.time() * 1000)): cm})
+                    else:
+                        current_jellyfish = inventory_ref.child(str(ctx.author.id)).update({
+                            '🪼' + str(int(time.time() * 1000)): cm
+                        })
+
+                    game_run = False
+                    active_games.pop(user_id, None)
+                    return line
+
+                if what_to_change == '👢':
+                    inventory_data = inventory_ref.child(str(ctx.author.id)).get()
+
+                    if inventory_data is None:
+                        inventory_ref.child(str(ctx.author.id)).set({'👢' + str(int(time.time() * 1000)): 5})
+                    else:
+                        inventory_ref.child(str(ctx.author.id)).update({'👢' + str(int(time.time() * 1000)): 5})
+
+
+                    line = f'вы поймали грязный ботинок из австралии.'
+
+
+                    game_run = False
+                    active_games.pop(user_id, None)
+                    return line
+
+                count = 0
+                line = ''
+                for row in raw_map:
+                    for emoji in row:
+                        if count < 7:
+                            line = line + f''.join(emoji)
+                            count += 1
+                        else:
+                            line = line + f''.join('\n')
+                            line = line + f''.join(emoji)
+                            count = 1
+                return line
+
+    game_up = FishGame()
+
+
 
     class Buttons(discord.ui.View):
         def __init__(self, author, timeout=None):
             super().__init__(timeout=timeout)
             self.author = author
 
+        for i in range(game_up.how_many):
+            game_up.spawn_fish()
+
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬆️')
         async def up(self, interaction: discord.Interaction, button: discord.ui.Button):
 
-            desc = change_coord(previous_hook[1], previous_hook[0], 0, -1)
+            desc = game_up.change_coord(game_up.previous_hook[1], game_up.previous_hook[0], 0, -1)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
             if "🟦" in new_embed.description:
                 await message.edit(embed=new_embed, view=Buttons(ctx.author, timeout=None))
@@ -778,7 +788,7 @@ async def fish(ctx):
 
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬇️')
         async def down(self, interaction: discord.Interaction, button: discord.ui.Button):
-            desc = change_coord(previous_hook[1], previous_hook[0], 0, 1)
+            desc = game_up.change_coord(game_up.previous_hook[1], game_up.previous_hook[0], 0, 1)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
             if "🟦" in new_embed.description:
                 await message.edit(embed=new_embed, view=Buttons(ctx.author, timeout=None))
@@ -792,7 +802,7 @@ async def fish(ctx):
 
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬅️')
         async def left(self, interaction: discord.Interaction, button: discord.ui.Button):
-            desc = change_coord(previous_hook[1], previous_hook[0], -1, 0)
+            desc = game_up.change_coord(game_up.previous_hook[1], game_up.previous_hook[0], -1, 0)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)),
                                       title=f'фишинг {ctx.author.display_name}', description=desc)
             if "🟦" in new_embed.description:
@@ -807,7 +817,7 @@ async def fish(ctx):
 
         @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='➡️')
         async def right(self, interaction: discord.Interaction, button: discord.ui.Button):
-            desc = change_coord(previous_hook[1], previous_hook[0], 1, 0)
+            desc = game_up.change_coord(game_up.previous_hook[1], game_up.previous_hook[0], 1, 0)
             new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)),
                                       title=f'фишинг {ctx.author.display_name}', description=desc)
             if "🟦" in new_embed.description:
@@ -820,14 +830,14 @@ async def fish(ctx):
             return interaction.user.id == self.author.id
 
 
-    embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=map_print())
+    embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=game_up.map_print())
     if "вы" in embed.description:
         message = await ctx.send(embed=embed, view=None)
         await message.edit(embed=embed, view=None)
     else:
         message = await ctx.send(embed=embed, view=Buttons(ctx.author, timeout=None))
 
-    while game_run:
+    while game_up.game_run:
         await asyncio.sleep(1)
 
     print(active_games)
