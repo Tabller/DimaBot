@@ -449,20 +449,23 @@ async def balance(ctx, member: discord.Member = None):
         def __init__(self, timeout=60):
             super().__init__(timeout=timeout)
 
-        @discord.ui.button(label="Предыдущая страница", style=discord.ButtonStyle.primary)
-        async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-            nonlocal current_page
-            if current_page > 1:
-                current_page -= 1
-                await interaction.response.edit_message(embed=balance_sort(current_page, per_page), view=self)
+        max_pages = (len(inventory_data.items()) + per_page - 1) // per_page
 
-        @discord.ui.button(label="Следующая страница", style=discord.ButtonStyle.primary)
-        async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-            nonlocal current_page
-            max_pages = (len(inventory_data.items()) + per_page - 1) // per_page
-            if current_page < max_pages:
-                current_page += 1
-                await interaction.response.edit_message(embed=balance_sort(current_page, per_page), view=self)
+        if max_pages > 1:
+            @discord.ui.button(label="Предыдущая страница", style=discord.ButtonStyle.primary)
+            async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+                nonlocal current_page
+                if current_page > 1:
+                    current_page -= 1
+                    await interaction.response.edit_message(embed=balance_sort(current_page, per_page), view=self)
+
+            @discord.ui.button(label="Следующая страница", style=discord.ButtonStyle.primary)
+            async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+                nonlocal current_page
+                max_pages = (len(inventory_data.items()) + per_page - 1) // per_page
+                if current_page < max_pages:
+                    current_page += 1
+                    await interaction.response.edit_message(embed=balance_sort(current_page, per_page), view=self)
 
     await ctx.send(embed = embed, view=BalanceView())
 active_games = {}
