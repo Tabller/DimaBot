@@ -377,6 +377,9 @@ async def feedback(ctx, *, text):
     await ponos(prompt=text, username=ctx.author.display_name, avatar=ctx.author.display_avatar)
     await ctx.send('фидбек отправлен (наверное)')
 
+
+
+
 @client.command()
 @commands.cooldown(1, 10, commands.BucketType.user)
 async def balance(ctx, member: discord.Member = None):
@@ -395,31 +398,73 @@ async def balance(ctx, member: discord.Member = None):
     else:
         inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
-    if inventory_data is None:
-        embed = discord.Embed(title=f'Карман Игрока {user_name}',
-                              colour=discord.Colour(int('5BC1FF', 16)))
+
+
+    def balance_sort(page: int, per_page: int = 10):
+        #if inventory_data is None:
+        #    embed = discord.Embed(title=f'Карман Игрока {user_name}',
+        #                          colour=discord.Colour(int('5BC1FF', 16)))
+        #    embed.add_field(name='Монетки', value=karman)
+        #    return await ctx.send(embed=embed)
+
+        embed = discord.Embed(title=f'Карман Игрока {user_name}', colour=discord.Colour(int('5BC1FF', 16)))
         embed.add_field(name='Монетки', value=karman)
-        await ctx.send(embed=embed)
 
 
-    embed = discord.Embed(title=f'Карман Игрока {user_name}', colour=discord.Colour(int('5BC1FF', 16)))
-    embed.add_field(name = 'Монетки', value = karman)
 
-    for item_name, quantity in inventory_data.items():
-        print(item_name)
-        if '👢' in item_name:
-            embed.add_field(name = '👢', value = f'{quantity} монет')
-        if '🐟' in item_name:
-            embed.add_field(name = '🐟', value = f'{quantity} см')
-        if '🐠' in item_name:
-            embed.add_field(name = '🐠', value = f'{quantity} см')
-        if '🐡' in item_name:
-            embed.add_field(name = '🐡', value = f'{quantity} см')
-        if '🪼' in item_name:
-            embed.add_field(name = '🪼', value = f'{quantity} см')
-        if '🍌' in item_name:
-            embed.add_field(name = '🍌', value = f'{quantity} монет')
-    await ctx.send(embed = embed)
+        start = (page - 1) * per_page
+        end = start + per_page
+        dictlist = []
+        for key, value in inventory_data.items():
+            temp = (key, value)
+            dictlist.append(temp)
+
+
+        balance_page = dictlist[start:end]
+
+        for i, (item_name, quantity) in enumerate(balance_page, start=start + 1):
+            if '👢' in item_name:
+                embed.add_field(name='👢', value=f'{quantity} монет')
+            if '🐟' in item_name:
+                embed.add_field(name='🐟', value=f'{quantity} см')
+            if '🐠' in item_name:
+                embed.add_field(name='🐠', value=f'{quantity} см')
+            if '🐡' in item_name:
+                embed.add_field(name='🐡', value=f'{quantity} см')
+            if '🪼' in item_name:
+                embed.add_field(name='🪼', value=f'{quantity} см')
+            if '🍌' in item_name:
+                embed.add_field(name='🍌', value=f'{quantity} монет')
+        embed.set_footer(
+            text=f"страница {page}/{(len(inventory_data.items()) + per_page - 1) // per_page}"
+        )
+        return embed
+
+    current_page = 1
+    per_page = 12
+
+    embed = balance_sort(current_page, per_page)
+
+    class BalanceView(discord.ui.View):
+        def __init__(self, timeout=60):
+            super().__init__(timeout=timeout)
+
+        @discord.ui.button(label="Предыдущая страница", style=discord.ButtonStyle.primary)
+        async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+            nonlocal current_page
+            if current_page > 1:
+                current_page -= 1
+                await interaction.response.edit_message(embed=balance_sort(current_page, per_page), view=self)
+
+        @discord.ui.button(label="Следующая страница", style=discord.ButtonStyle.primary)
+        async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+            nonlocal current_page
+            max_pages = (len(inventory_data.items()) + per_page - 1) // per_page
+            if current_page < max_pages:
+                current_page += 1
+                await interaction.response.edit_message(embed=balance_sort(current_page, per_page), view=self)
+
+    await ctx.send(embed = embed, view=BalanceView())
 active_games = {}
 
 @client.hybrid_command()
