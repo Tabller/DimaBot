@@ -8,6 +8,7 @@ import re
 import asyncio
 import os
 import firebase_admin
+from discord.ext.commands import has_any_role
 from firebase_admin import credentials
 from firebase_admin import firestore
 from firebase_admin import db
@@ -911,6 +912,7 @@ def parse_time(time_str: str) -> int:
 
 
 @client.command()
+@has_any_role(1053297629112569926)
 async def лимбо(ctx, member: discord.Member):
     role = discord.utils.get(ctx.guild.roles, name="лимбо")
     if role in member.roles:
@@ -920,6 +922,7 @@ async def лимбо(ctx, member: discord.Member):
         await member.add_roles(role)
 
 @client.command()
+@has_any_role(1053297629112569926)
 async def оживить(ctx, member: discord.Member):
     role = discord.utils.get(ctx.guild.roles, name="лимбо")
     if not (role in member.roles):
