@@ -909,6 +909,25 @@ def parse_time(time_str: str) -> int:
     else:
         raise ValueError("какашно вводишь время")
 
+
+@client.command()
+async def лимбо(ctx, member: discord.Member):
+    role = discord.utils.get(ctx.guild.roles, name="лимбо")
+    if role in member.roles:
+        await ctx.reply(f"{member.mention} уже в лимбо", ephemeral=True)
+        return
+    else:
+        await member.add_roles(role)
+
+@client.command()
+async def оживить(ctx, member: discord.Member):
+    role = discord.utils.get(ctx.guild.roles, name="лимбо")
+    if not (role in member.roles):
+        await ctx.reply(f"{member.mention} не в лимбо", ephemeral=True)
+        return
+    else:
+        await member.remove_roles(role)
+
 @client.hybrid_command(name = "клетка", with_app_command = True)
 @app_commands.describe(member="юзер", time="время (s/m/h/d)")
 @commands.has_permissions(administrator = True)
