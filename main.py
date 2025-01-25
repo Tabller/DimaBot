@@ -3,6 +3,7 @@ from datetime import datetime
 from datetime import timedelta
 # from tkinter.ttk import Button
 import discord
+import itertools
 import ast
 import re
 import asyncio
@@ -379,12 +380,19 @@ async def feedback(ctx, *, text):
     await ctx.send('фидбек отправлен (наверное)')
 
 
+items = {
+            '👢': [1, "монет", "very cool stuff"],
+            '🐟': [1.1, "см", "very cool stuff"],
+            '🐠': [1.45, "см", "very cool stuff"],
+            '🐡': [1.28, "см", "very cool stuff"],
+            '🪼': [1.76, "см", "very cool stuff"],
+            '🍌': [1, "монет", "very cool stuff"]
+        }
 
 
 @client.command()
 @commands.cooldown(1, 10, commands.BucketType.user)
 async def balance(ctx, member: discord.Member = None):
-
     if member:
         user_data = economy_ref.child(str(member.id)).get()
         user_name = member.display_name
@@ -408,6 +416,7 @@ async def balance(ctx, member: discord.Member = None):
         #    embed.add_field(name='Монетки', value=karman)
         #    return await ctx.send(embed=embed)
 
+
         embed = discord.Embed(title=f'Карман Игрока {user_name}', colour=discord.Colour(int('5BC1FF', 16)))
         embed.add_field(name='Монетки', value=karman)
 
@@ -422,20 +431,12 @@ async def balance(ctx, member: discord.Member = None):
 
 
         balance_page = dictlist[start:end]
-
+        pattern = r'[0-9]'
         for i, (item_name, quantity) in enumerate(balance_page, start=start + 1):
-            if '👢' in item_name:
-                embed.add_field(name='👢', value=f'{quantity} монет')
-            if '🐟' in item_name:
-                embed.add_field(name='🐟', value=f'{quantity} см')
-            if '🐠' in item_name:
-                embed.add_field(name='🐠', value=f'{quantity} см')
-            if '🐡' in item_name:
-                embed.add_field(name='🐡', value=f'{quantity} см')
-            if '🪼' in item_name:
-                embed.add_field(name='🪼', value=f'{quantity} см')
-            if '🍌' in item_name:
-                embed.add_field(name='🍌', value=f'{quantity} монет')
+            new_string = re.sub(pattern, '', item_name)
+            if new_string in items:
+                multiplier, word, way_to_sell = items.get(new_string)
+                embed.add_field(name=str(new_string), value=f'{quantity} {word}')
         embed.set_footer(
             text=f"страница {page}/{(len(inventory_data.items()) + per_page - 1) // per_page}"
         )
@@ -483,25 +484,24 @@ async def sell(ctx, item: str):
     for item_name, quantity in inventory_data.items():
         dictionary[item_name] = quantity
 
-    cm = "см"
-    normal_stuff = ['👢', '🍌']
-    if item in normal_stuff:
-        cm = "монет"
+
 
     what_to_sell = {}
     for item_name, quantity in dictionary.items():
         if item in item_name or item == "inventory":
             what_to_sell[item_name] = quantity
 
+    pattern = r'[0-9]'
+    new_string = re.sub(pattern, '', item)
+
     if len(what_to_sell) >= 1:
 
         if len(what_to_sell) > 1 and item != "inventory":
-
-
+            multiplier, word, way_to_sell = items.get(new_string)
 
             await ctx.send(
                 f"ничего себе, у тебя несколько '{item}'. выбери чё продать из этого:\n" +
-                "\n".join([f"- {item}: {value} {cm}" for name, value in what_to_sell.items()])
+                "\n".join([f"- {new_string}: {value} {word}" for name, value in what_to_sell.items()])
             )
 
             msg = await ctx.send('или напиши "всё" если хочешь продать всё сразу')
@@ -515,7 +515,7 @@ async def sell(ctx, item: str):
 
                 selected_item = response.content
                 if response.content != "всё":
-                    await ctx.send(f"окей, ща продадим {item}: {selected_item} {cm}")
+                    await ctx.send(f"окей, ща продадим {item}: {selected_item} {word}")
             else:
                 selected_item = "всё"
 
@@ -531,38 +531,15 @@ async def sell(ctx, item: str):
                         if user_data is None:
                             user_economy_ref.set({"coins": 0})
 
-
-                        # великий трейдиинг лист
-                        if item == '🐡' or '🐡' in key:
-                            sell_price = int(value * 1.28)
-                            current_coins = user_data.get("coins", 0)
-                            user_economy_ref.update({"coins": current_coins + sell_price})
-                        if item == '🐟' or '🐟' in key:
-                            sell_price = int(value * 1.1)
-                            current_coins = user_data.get("coins", 0)
-                            user_economy_ref.update({"coins": current_coins + sell_price})
-                        if item == '🐠' or '🐠' in key:
-                            sell_price = int(value * 1.45)
-                            current_coins = user_data.get("coins", 0)
-                            user_economy_ref.update({"coins": current_coins + sell_price})
-                        if item == '🪼' or '🪼' in key:
-                            sell_price = int(value * 1.76)
-                            current_coins = user_data.get("coins", 0)
-                            user_economy_ref.update({"coins": current_coins + sell_price})
-                        if item == '👢' or '👢' in key:
-                            sell_price = int(value * 1)
-                            current_coins = user_data.get("coins", 0)
-                            user_economy_ref.update({"coins": current_coins + sell_price})
-                        if item == '🍌' or '🍌' in key:
-                            sell_price = int(value * 1)
+                        if new_string in key:
+                            multiplier, word, way_to_sell = items.get(new_string)
+                            sell_price = int(value * multiplier)
                             current_coins = user_data.get("coins", 0)
                             user_economy_ref.update({"coins": current_coins + sell_price})
 
-                        remove_digits = str.maketrans('', '', digits)
-                        name = key.translate(remove_digits)
 
-                        funny_copy_what_to_sell.pop(key)
-                        await ctx.send(f"на файерградском рынке купили {name} за {sell_price} монет")
+                            funny_copy_what_to_sell.pop(key)
+                            await ctx.send(f"на файерградском рынке купили {new_string} за {sell_price} монет")
 
                         if selected_item != "всё":
                             break
