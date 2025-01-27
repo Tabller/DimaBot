@@ -3,6 +3,7 @@ from datetime import datetime
 from datetime import timedelta
 # from tkinter.ttk import Button
 import discord
+from threading import Timer
 import itertools
 import ast
 import re
@@ -14,9 +15,9 @@ from firebase_admin import credentials
 from firebase_admin import firestore
 from firebase_admin import db
 from discord.enums import ButtonStyle
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.utils import get
-from discord import Webhook, SyncWebhook, Interaction
+from discord import Webhook, SyncWebhook, Interaction, Color
 import aiohttp
 import random
 import json
@@ -56,6 +57,7 @@ penalty_ref = db.reference('penalty')
 @client.event
 async def on_ready():
     print(f'Bot {client.user} is online.')
+    client.loop.create_task(periodic_task())
     try:
         synced = await client.tree.sync()
         print(f'Synced {len(synced)} interaction command(s).')
@@ -63,6 +65,7 @@ async def on_ready():
         print(exception)
     activity = discord.Game("ponos")
     await client.change_presence(activity=activity)
+
 
 @client.event
 async def on_message(message):
@@ -184,7 +187,7 @@ async def help(ctx, member: discord.Member = None):
 
     commands_twitch = {
         "/submit [игра]": "Предложить игру для стрима в канал <#1185909058910310420>",
-        "/list": "Посмотреть список предложенных игр."
+        "/showlist": "Посмотреть список предложенных игр."
     }
     commands_rpg = {
         "!balance (@юзер)": "Проверить свой карман (на наличие денег).",
@@ -217,7 +220,7 @@ async def help(ctx, member: discord.Member = None):
     await ctx.send(embed=embed, view=view)
 
 @client.hybrid_command()  # ЛИСТ СПИСКА
-async def list(ctx):
+async def showlist(ctx):
     message = ''
     all_games = games_ref.get()
     if all_games:
@@ -381,14 +384,46 @@ async def feedback(ctx, *, text):
 
 
 items = {
-            '👢': [1, "монет", "very cool stuff"],
-            '🐟': [1.1, "см", "very cool stuff"],
-            '🐠': [1.45, "см", "very cool stuff"],
-            '🐡': [1.28, "см", "very cool stuff"],
-            '🪼': [1.76, "см", "very cool stuff"],
-            '🍌': [1, "монет", "very cool stuff"]
+            '👢': [1, "монет", "грязный ботинок", "very cool stuff", "func", '👢', "price"],
+            '🐟': [1.1, "см", "карась","very cool stuff", "func", '🐟', "price"],
+            '🐠': [1.45, "см", "брат карася","very cool stuff", "func", '🐠', "price"],
+            '🐡': [1.28, "см", "рыба агу ага","very cool stuff", "func", '🐡', "price"],
+            '🪼': [1.76, "см", "медуза крутая","very cool stuff", "func", '🪼', "price"],
+            '🦐': [1.2, "см", "креветочка","very cool stuff", "func", '🦐', "price"],
+            '🐙': [2.3, "см", "разрушитель три тысячи","very cool stuff", "func", '🐙', "price"],
+            '🦈': [3.23, "см", "Я АКУЛА","very cool stuff", "func", '🦈', "price"],
+            '🐚': [1.21, "монет", "плавающая ракушка","very cool stuff", "func", '🐚', "price"],
+            '🍌': [1, "монет", "банано","very cool stuff", "func", '🍌', "price"],
+            '🤖': [5.1, "монет", "петя умный","very cool stuff", "func", '🤖', "price"],
+            '💩': [1, "монет", "мусор (говно)","very cool stuff", "func", '💩', "price"],
+            '🎩': [2.45, "монет", "шляпникус","very cool stuff", "func", '🎩', "price"],
+            '🧦': [1.05, "монет", "грязные носки (братья грязного ботинка)","very cool stuff", "func", '🧦', "price"],
+            '🎣': [2, "монет", "удочка TIER 2","very cool stuff", "func", '🎣', "price"],
+            '♟️': [6, "монет", "пешка","very cool stuff", "func", '♟️', "price"],
+            '🏵️': [1.5, "монет","цветок муосотис", "very cool stuff", "func", '🏵️', "price"],
+            '🚘': [8.45, "монет", "собственная тачка","very cool stuff", "func", '🚘', "price"],
+            '🔩': [0.23, "монет", "металлолом декеинг","very cool stuff", "func", '🔩', "price"],
+            '📟': [2.3, "монет", "пейджер","very cool stuff", "func", '📟', "price"],
+            '🖲️': [2.1, "монет", "красная кнопка", "very cool stuff", "func", '🖲️', "price"],
+            '💰': [1, "монет", "мешок с деньгами", "very cool stuff", "func", '💰', "price"],
+            '🧬': [45.3, "монет", "ДНК", "very cool stuff", "func", '🧬', "price"],
         }
 
+def craft(emoji):
+    crafting_dict = {
+        ('🐡', '🐠', '🐟'): "😀",
+        ('🐟', '🐠', '🐡'): "vineboom"
+    }
+    new_tuple = (emoji.replace(" ", ""))
+    q = list(itertools.permutations(new_tuple, len(new_tuple)))
+    for i in q:
+        temporary = crafting_dict.get(i)
+        if temporary:
+            # code here
+            break
+        else:
+            # код на создание говна
+            pass
 
 @client.command()
 @commands.cooldown(1, 10, commands.BucketType.user)
@@ -435,7 +470,7 @@ async def balance(ctx, member: discord.Member = None):
         for i, (item_name, quantity) in enumerate(balance_page, start=start + 1):
             new_string = re.sub(pattern, '', item_name)
             if new_string in items:
-                multiplier, word, way_to_sell = items.get(new_string)
+                multiplier, word, name, way_to_sell, func, icon, price = items.get(new_string)
                 embed.add_field(name=str(new_string), value=f'{quantity} {word}')
         embed.set_footer(
             text=f"страница {page}/{(len(inventory_data.items()) + per_page - 1) // per_page}"
@@ -497,7 +532,7 @@ async def sell(ctx, item: str):
     if len(what_to_sell) >= 1:
 
         if len(what_to_sell) > 1 and item != "inventory":
-            multiplier, word, way_to_sell = items.get(new_string)
+            multiplier, word, name, way_to_sell, func, icon, price = items.get(new_string)
 
             await ctx.send(
                 f"ничего себе, у тебя несколько '{item}'. выбери чё продать из этого:\n" +
@@ -532,7 +567,7 @@ async def sell(ctx, item: str):
                             user_economy_ref.set({"coins": 0})
 
                         if new_string in key:
-                            multiplier, word, way_to_sell = items.get(new_string)
+                            multiplier, word, name, way_to_sell, func, icon, price = items.get(new_string)
                             sell_price = int(value * multiplier)
                             current_coins = user_data.get("coins", 0)
                             user_economy_ref.update({"coins": current_coins + sell_price})
@@ -1120,9 +1155,83 @@ async def почистить(ctx, emoji):
         await ctx.reply("да нельзя щас")
 
 
+def initialize_shop():
+    chosen_keys = []
+    shop_catalogue = list(items.values())
+    for _ in range(3):
+        chosen_keys.append(random.choice(shop_catalogue))
+
+    for i in chosen_keys:
+
+        if chosen_keys.count(i) > 1:
+            save_index = i
+            while chosen_keys.count(save_index) != 1:
+                chosen_keys.remove(save_index)
+                chosen_keys.insert(chosen_keys.index(save_index),random.choice(shop_catalogue))
+    return chosen_keys
+
+
+# shop_items = initialize_shop()
+
+@client.hybrid_command()
+@commands.cooldown(1, 3, commands.BucketType.user)
+async def shop(ctx):
+    embed = discord.Embed(color=Color.dark_purple(), title="Магазин", description=None)
+
+
+    for item in shop_items:
+        embed.add_field(name=item[5], value=item[2], inline=True)
+        embed.add_field(name=f"{item[6]}", value="\n", inline=False)
+    saved_embed = embed
+
+
+    class BackButton(discord.ui.View):
+        @discord.ui.button(label='Назад', style=discord.ButtonStyle.success)
+        async def back(self, interaction: discord.Interaction, button: discord.ui.Button):
+            await interaction.response.edit_message(embed=saved_embed, view=shopButtons())
+
+    class shopButtons(discord.ui.View):
+        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji=str(shop_items[0][5]))
+        async def first(self, interaction: discord.Interaction, button: discord.ui.Button):
+            item_info = discord.Embed(color=Color.dark_purple(), title=shop_items[0][2], description=None)
+            item_info.add_field(name="Описание:", value=shop_items[0][3], inline=True)
+            await interaction.response.edit_message(embed=item_info, view=BackButton())
+        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji=str(shop_items[1][5]))
+        async def second(self, interaction: discord.Interaction, button: discord.ui.Button):
+            item_info = discord.Embed(color=Color.dark_purple(), title=shop_items[1][2], description=None)
+            item_info.add_field(name="Описание:", value=shop_items[1][3], inline=True)
+            await interaction.response.edit_message(embed=item_info, view=BackButton())
+
+        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji=str(shop_items[2][5]))
+        async def third(self, interaction: discord.Interaction, button: discord.ui.Button):
+            item_info = discord.Embed(color=Color.dark_purple(), title=shop_items[2][2], description=None)
+            item_info.add_field(name="Описание:", value=shop_items[2][3], inline=True)
+            await interaction.response.edit_message(embed=item_info, view=BackButton())
 
 
 
+
+    await ctx.send(embed = embed, view=shopButtons())
+
+
+async def periodic_task():
+    global shop_items
+    while True:
+        shop_items = initialize_shop()
+        print("Shop changed")
+        await asyncio.sleep(10)
+
+# def singleton(class_):
+#     instances = {}
+#     def getinstance(*args, **kwargs):
+#         if class_ not in instances:
+#             instances[class_] = class_(*args, **kwargs)
+#         return instances[class_]
+#     return getinstance
+#
+# @singleton
+# class MyClass(BaseClass):
+#     pass
 
 
 @client.command()
@@ -1172,5 +1281,8 @@ async def simulation3(ctx):
                           description=generate_game())
 
     message = await ctx.send(embed=embed, view=view)
+
+
+# нужно сделать луп здесь шоп короче не лупится почему то можешь проверить типо таймер не выводит.
 
 client.run(os.environ['BOT_TOKEN'])
