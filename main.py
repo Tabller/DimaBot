@@ -1349,7 +1349,7 @@ async def shop(ctx):
                     embed = discord.Embed(color=Color.dark_purple(), title="Магазин",
                                           description=f"У вас не хватает денег!")
                     await interaction.response.edit_message(embed=embed, view=None)
-                    return
+
 
             if user_data is None:
                 if current_emoji in fish_emojis:
@@ -1378,7 +1378,7 @@ async def shop(ctx):
                     await interaction.response.edit_message(embed=embed, view=None)
                 else:
                     new_item = inventory_ref.child(str(self.author.id)).update({
-                        f'{current_emoji}' + str(int(time.time() * 1000)): int(price * random.random())
+                        f'{current_emoji}' + str(int(time.time() * 1000)): int(int(price) * random.random())
                     })
                     current_coins = economy_data['coins']
                     economy_ref.child(str(self.author.id)).set({
