@@ -1343,18 +1343,25 @@ async def shop(ctx):
                 embed = discord.Embed(color=Color.dark_purple(), title="Магазин",
                                       description=f"У вас не хватает денег!")
                 await interaction.response.edit_message(embed=embed, view=None)
+            else:
+                current_coins = economy_data['coins']
+                if int(current_coins) < int(price):
+                    embed = discord.Embed(color=Color.dark_purple(), title="Магазин",
+                                          description=f"У вас не хватает денег!")
+                    await interaction.response.edit_message(embed=embed, view=None)
+                    return
 
             if user_data is None:
                 if current_emoji in fish_emojis:
                     inventory_ref.child(str(self.author.id)).set(
-                        {f'{current_emoji}' + str(int(time.time() * 1000)): int(price * random.random())})
+                        {f'{current_emoji}' + str(int(time.time() * 1000)): int(int(price) * random.random())})
                     current_coins = economy_data['coins']
                     economy_ref.child(str(self.author.id)).set({
                         'coins': current_coins - int(price)
                     })
                     await interaction.response.edit_message(embed=embed, view=None)
                 else:
-                    inventory_ref.child(str(self.author.id)).update({f'{current_emoji}' + str(int(time.time() * 1000)): int(price * random.random())})
+                    inventory_ref.child(str(self.author.id)).update({f'{current_emoji}' + str(int(time.time() * 1000)): int(int(price) * random.random())})
                     current_coins = economy_data['coins']
                     economy_ref.child(str(self.author.id)).set({
                         'coins': current_coins - int(price)
