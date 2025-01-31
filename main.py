@@ -1343,12 +1343,14 @@ async def shop(ctx):
                 embed = discord.Embed(color=Color.dark_purple(), title="Магазин",
                                       description=f"У вас не хватает денег!")
                 await interaction.response.edit_message(embed=embed, view=None)
+                return
             else:
                 current_coins = economy_data['coins']
                 if int(current_coins) < int(price):
                     embed = discord.Embed(color=Color.dark_purple(), title="Магазин",
                                           description=f"У вас не хватает денег!")
                     await interaction.response.edit_message(embed=embed, view=None)
+                    return
 
 
             if user_data is None:
