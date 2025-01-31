@@ -454,10 +454,13 @@ async def craft(ctx, *, emoji):
             inventory.append(new_string)
             inventory_with_timestamps.append(key)
 
+        items_you_used = []
+
         if all(item in inventory for item in ingredients):
             for item in ingredients:
                 for item2 in inventory_with_timestamps:
                     if item in item2:
+                        items_you_used.append(item)
                         inventory_path = f"{str(ctx.author.id)}/{str(item2)}"
                         inventory_ref.child(inventory_path).delete()
                         break
@@ -471,9 +474,17 @@ async def craft(ctx, *, emoji):
                     {'💩' + str(int(time.time() * 1000)): int(1)})
                 await ctx.send(f"ты намудрил с рецептом, и скрафтил {'💩'}.")
         else:
-            new_item = inventory_ref.child(str(ctx.author.id)).update(
-                {'💩' + str(int(time.time() * 1000)): int(1)})
-            await ctx.send(f"вы были на правильном пути к крафте какой-то вещи, но получилось {'💩'} из-за нехватки ресов.")
+
+            #new_item = inventory_ref.child(str(ctx.author.id)).update(
+            #    {'💩' + str(int(time.time() * 1000)): int(1)})
+            await ctx.send(f"у вас не получилось скрафтить предмет.")
+            for used_item in items_you_used:
+                if used_item in ingredients:
+                    if len(ingredients) == 3:
+                        await ctx.send(f"возможно, этот предмет используется в крафте: {str(used_item)} + ??? + ???")
+                    else:
+                        await ctx.send(f"возможно, этот предмет используется в крафте: {str(used_item)} + ???")
+
 
     else:
         await ctx.send("ты че как бомжик аид, беги собирать вещи")
