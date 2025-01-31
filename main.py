@@ -747,7 +747,8 @@ async def fish(ctx):
             else:
                 fish_rod_list = []
                 for key, value in inventory_data.items():
-                    fish_rod_list.append(key)
+                    new_string = re.sub(r'[0-9]', '', key)
+                    fish_rod_list.append(new_string)
                 if '🎣' in fish_rod_list:
                     fish_emojis = ['🐟','🐟','🐟', '🐟', '🐟', '🐠', '🐠', '🐠', '🐡', '🪼', '👢', '🦐', '🦐', '🐙', '🦈', '🐚', '🐚']
                 else:
