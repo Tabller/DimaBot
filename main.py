@@ -24,6 +24,7 @@ import json
 import time
 from dotenv import load_dotenv
 import os
+import regex
 from collections import Counter
 from string import digits
 
@@ -32,12 +33,14 @@ from rsa.randnum import randint
 from discord import app_commands
 import logging
 
+from select import select
+
 load_dotenv(dotenv_path='/root/DimaBot/.env')
 
 intents = discord.Intents.all()
 intents.message_content = True
 
-client = commands.Bot(command_prefix='!', intents=intents, help_command=None)
+client = commands.Bot(command_prefix='?', intents=intents, help_command=None)
 url = os.environ['WEBHOOK_URL']
 
 
@@ -195,7 +198,8 @@ async def help(ctx, member: discord.Member = None):
         "!sell [:emoji:/inventory]": "Продать предмет(ы)/весь инвентарь",
         "!leaderboard": "Просмотр таблицы монет",
         "!shop": "Просмотр магазина, который обновляется каждые 6 часов.",
-        "!craft [2-3 :emoji:]": "Создать предмет, если рецепт окажется верным."
+        "!craft [2-3 :emoji:]": "Создать предмет, если рецепт окажется верным.",
+        "!pin [:emoji:]": "Пригвоздить предмет, чтобы его невозможно было продать, или отгвоздить его."
     }
     commands_admin = {
         "!клетка [@юзер] [время [s/m/h/d]] (бананы) (причина)": "Отправить человека в то самое место..."
@@ -392,9 +396,70 @@ async def feedback(ctx, *, text):
     await ponos(prompt=text, username=ctx.author.display_name, avatar=ctx.author.display_avatar)
     await ctx.send('фидбек отправлен (наверное)')
 
+'''
+Секция с типичными командами использования
+'''
+
+# Инвертирует игровое поле рыбной мини-игры
+async def id0use(ctx, item):
+    user_id = ctx.author.id
+    inventory_data = inventory_ref.child(str(user_id)).get()
+
+    ref = db.reference(f'inventory/{user_id}/effects')
+    current = ref.get()
+
+
+    if inventory_data is None:
+       inventory_ref.child(str(ctx.author.id)).set({"effects": "boot"})
+    elif current:
+        new_value = f"{current};boot"
+        ref.set(new_value)
+    else:
+        inventory_ref.child(str(ctx.author.id)).update({"effects": "boot"})
+
+    dictionary = {}
+    for item_name, quantity in inventory_data.items():
+        dictionary[item_name] = quantity
+
+    what_to_delete = {}
+    for item_name, quantity in dictionary.items():
+        if '👢' in item_name:
+            if not ('📌' in item_name):
+                what_to_delete[item_name] = quantity
+    pattern = r'[0-9]'
+    new_string = re.sub(pattern, '', item)
+
+    print(what_to_delete)
+
+    first_way = items.get(item)
+    if first_way:
+        inventory_path = f"{user_id}/{item}"
+        inventory_ref.child(inventory_path).delete()
+        print('first')
+        return
+
+    try:
+        for key, val in what_to_delete.items():
+            if str(item) == str(val) or str(key) == str(item):
+                inventory_path = f"{user_id}/{key}"
+                inventory_ref.child(inventory_path).delete()
+                return
+
+    except:
+        print("ponos")
+
+
+
+    embed = discord.Embed(title=f'Карман Игрока {ctx.author.display_name}',
+                          colour=discord.Colour(int('5BC1FF', 16)))
+    embed.add_field(name=f"",
+                    value=f"Вы надели себе на голову 👢. Что-то поменялось, но вы не можете сказать, что именно...")
+
+    await ctx.send(embed=embed)
+
 
 items = {
-            '👢': [1, "монет", "грязный ботинок", "Грязные ботинки штамповали тысячами в Австралии. Неизвестно почему, но все они оказались в море. Спасите морской биоценоз — соберите их все!", "func", '👢', "6"],
+            '👢': [1, "монет", "грязный ботинок", "Грязные ботинки штамповали тысячами в Австралии. Неизвестно почему, но все они оказались в море. Спасите морской биоценоз — соберите их все!", id0use, '👢', "6"],
             '🐟': [1.1, "см", "карась","Карась является самым частовречающимся представителем в здешних водах. Скажите ему привет!", "func", '🐟', "51"],
             '🐠': [1.45, "см", "брат карася","Брат Карася не знает, что у него есть брат. Похоже, тот отбился от косяка... Какая досада!", "func", '🐠', "62"],
             '🐡': [1.28, "см", "рыба агу ага","Это удивительная рыба Агу Ага, о ней мало что известно человечеству.", "func", '🐡', "73"],
@@ -406,7 +471,7 @@ items = {
             '🍌': [1, "монет", "банано","Кто-то небрежно очистил банан от кожуры. Интересно, их действительно собирают с пальм?", "func", '🍌', "25"],
             '🤖': [5.1, "монет", "петя умный","Петя версия v1. Ничего не делает. Зато круто выглядит.", "func", '🤖', "200000"],
             '💩': [1, "монет", "мусор (говно)","Ну и что за хрень...", "func", '💩', "2"],
-            '🎩': [2.45, "монет", "шляпникус","Я не знаю, что это, но это точно не из нашего мира. Может быть, оно обладает каким-либо функционалом? Или используется для чего-то? Кто знает...", "func", '🎩', "872"],
+            '🎩': [2.45, "монет", "шляпникус","Я не знаю, что это, но это точно не из нашего мира. Может быть, оно обладает каким-либо функционалом? Или используется для чего-то? Кто знает...", "Перемещает вас в рандомную локацию или даёт рандомный статусный эффект", '🎩', "872"],
             '🧦': [1.05, "монет", "грязные носки (братья грязного ботинка)","Грязные носки не штамповали тысячами, однако, эти раритетные экземпляры никто не хочет покупать. Ну, кроме вас, если вы сюда нажали, увы.", "func", '🧦', "98"],
             '🎣': [2, "монет", "удочка TIER 2","Теперь вы сможете рыбачить не руками с леской и крючком, а с удочкой и леской с крючком!", "func", '🎣', "1575"],
             '♟️': [6, "монет", "пешка", f"Checkmate in {str(random.randint(2, 600))} moves", "func", '♟️', "2009"],
@@ -419,7 +484,8 @@ items = {
             '🧬': [45.3, "монет", "ДНК", "Каким образом это вообще продаётся? Похоже, мы живём в будущем! Я сам определяю свой геном...", "func", '🧬', "999"],
             '🪚': [1.6, "монет", "пилище", "Я бы с такой не играл.", "func", '🪚', "339"],
             '🚪': [1.28, "монет", "дверь", "Дверь мне запили!", "func", '🚪', "199"],
-            '🍣': [1.28, "монет", "сашими", "DIY, прямиком из-под ножа!", "func", '🍣', "155"]
+            '🍣': [1.28, "монет", "сашими", "DIY, прямиком из-под ножа!", "func", '🍣', "155"],
+            '⛵': [1.12, "монет", "лодка", "преследуешь мечты которые дрим и sail или просто ты лоцман - прямой путь в японию", "func", '⛵', '2500']
 
         }
 
@@ -440,7 +506,8 @@ async def craft(ctx, *, emoji):
         frozenset(['🪼', '🐟']): items.get('🍣'),
         frozenset(['🪼', '🐠']): items.get('🍣'),
         frozenset(['🐡', '🐠']): items.get('🍣'),
-        frozenset(['🐟', '🐠']): items.get('🍣')
+        frozenset(['🐟', '🐠']): items.get('🍣'),
+        frozenset(['🪚', '🚪', '🚪']): items.get('⛵')
 
     }
     ingredients = set(emoji.replace(" ", ""))
@@ -677,6 +744,58 @@ async def sell(ctx, item: str):
         await ctx.send(f"хрень, такого предмета нету")
 
 @client.command()
+@commands.cooldown(3, 1, commands.BucketType.user)
+async def use(ctx, *, item: str):
+    user_id = ctx.author.id
+    inventory_data = inventory_ref.child(str(user_id)).get()
+
+    if inventory_data is None:
+        await ctx.send('ты сон у тебя нет предметов')
+
+    dictionary = {}
+    for item_name, quantity in inventory_data.items():
+        dictionary[item_name] = quantity
+
+    available_items = {}
+    for item_name, quantity in dictionary.items():
+        if item in item_name or item == "inventory":
+            available_items[item_name] = quantity
+    pattern = r'[0-9]'
+    new_string = re.sub(pattern, '', item)
+
+    multiplier, word, name, description, func, icon, price = items.get(new_string)
+
+    if len(available_items) >= 1:
+
+        if len(available_items) > 1 and item != "inventory":
+            await ctx.send(
+                f"у тебя несколько '{item}'. выбери конкретный предмет, чтобы посмотреть информацию о нём\n(скопируй тег вместе с эмодзи или значение после двоеточий):\n" +
+                "\n".join([f"- {name}: {value} {word}" for name, value in available_items.items()])
+            )
+
+            def check(m):
+                return m.author == ctx.author
+
+        try:
+            if len(available_items) > 1:
+                response = await client.wait_for('message', check=check, timeout=30)
+
+                selected_item = response.content
+            else:
+                selected_item = item
+
+            try:
+                await func(ctx, selected_item)
+            except:
+                await ctx.send("Этот предмет не имеет никакого применения...")
+                return
+
+        except asyncio.TimeoutError:
+            await ctx.send("ты чет призадумался, попробуй лучше снова")
+    else:
+        await ctx.send(f"хрень, такого предмета нету")
+
+@client.command()
 @commands.cooldown(1, 1, commands.BucketType.user)
 async def pin(ctx, *, item: str):
     pattern = r'[0-9\s]'
@@ -804,6 +923,7 @@ async def fish(ctx):
             self.game_run = True
             self.fish_y = None
             self.fish_x = None
+            self.cm = 1
 
             self.map_one_coordinates = [["◼️", "◼️", "◼️", "◼️", "◼️", "☀️", "◼️"],
                                    ["◼️", "◼️", "◼️", "◼️", "◼️", "◼️", "◼️"],
@@ -818,11 +938,17 @@ async def fish(ctx):
                                    ["🟨", "🪸", "🟦", "🟦", "🟨", "🟨", "🟨"],
                                    ["🟨", "🟨", "🟨", "🟨", "🟨", "🟨", "🟨"]]
 
+
+
             #global previous_hook
             #global previous_boat
 
             self.previous_hook = [4, 3]
             self.previous_boat = [2, 3]
+
+        def rotate_90_clockwise(self, n, map):
+            for _ in range(n % 4):
+                self.map_one_coordinates = [list(row) for row in zip(*map[::-1])]
 
         def map_print(self):
             # map_one_coordinates, fish_coord = spawn_fish()
@@ -858,6 +984,9 @@ async def fish(ctx):
             choice_y = [5, 8]
             inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
+            fish_emojis = ['🐟', '🐟', '🐟', '🐟', '🐟', '🐠', '🐠', '🐠', '🐡', '🪼', '👢']
+
+
             if inventory_data is None:
                 pass
             else:
@@ -866,11 +995,13 @@ async def fish(ctx):
                     new_string = re.sub(r'[0-9]', '', key)
                     fish_rod_list.append(new_string)
 
-                if '🎣' or '📌🎣' in fish_rod_list:
+                if ('🎣' in fish_rod_list) or ('📌🎣' in fish_rod_list):
                     fish_emojis = ['🐟','🐟','🐟', '🐟', '🐟', '🐠', '🐠', '🐠', '🐡', '🪼', '👢', '🦐', '🦐', '🐙', '🦈', '🐚', '🐚']
-                else:
-                    fish_emojis = ['🐟','🐟','🐟', '🐟', '🐟', '🐠', '🐠', '🐠', '🐡', '🪼', '👢']
+
             # fish_emojis = ['👢']
+
+
+
             global raw_map
             raw_map = self.map_one_coordinates
             self.fish_y = random.choice(choice_y)
@@ -880,7 +1011,6 @@ async def fish(ctx):
 
 
             return raw_map, fish_coords
-
 
 
         def change_coord(self, x, y, new_x, new_y):
@@ -918,14 +1048,14 @@ async def fish(ctx):
                     for key, value in inventory_data.items():
                         fish_rod_list.append(key)
                     if '🎣' in fish_rod_list:
-                        cm = random.randint(1, 200) * double_chance()
+                        self.cm = random.randint(1, 200) * double_chance()
                     else:
-                        cm = random.randint(1, 100) * double_chance()
+                        self.cm = random.randint(1, 100) * double_chance()
 
 
                 if what_to_change == '🐟':
 
-                    line = f'вы поймали карася размером {cm} сантиметров'
+                    line = f'вы поймали карася размером {self.cm} сантиметров'
                     # base 5 * cm / 10
                     # current_coins = user_data.get('coins', 0)
                     # new_coins = current_coins + 5 * (cm / 10)
@@ -934,17 +1064,17 @@ async def fish(ctx):
                     inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
                     if inventory_data is None:
-                        inventory_ref.child(str(ctx.author.id)).set({'🐟' + str(int(time.time() * 1000)): cm})
+                        inventory_ref.child(str(ctx.author.id)).set({'🐟' + str(int(time.time() * 1000)): self.cm})
                     else:
                         current_fish = inventory_ref.child(str(ctx.author.id)).update({
-                            '🐟' + str(int(time.time() * 1000)): cm
+                            '🐟' + str(int(time.time() * 1000)): self.cm
                         })
 
                     game_run = False
                     active_games.pop(user_id, None)
                     return line
                 if what_to_change == '🐠':
-                    line = f'вы поймали брата карася размером {cm} сантиметров'
+                    line = f'вы поймали брата карася размером {self.cm} сантиметров'
                     # base 6 * cm / 10
                     # current_coins = user_data.get('coins', 0)
                     # new_coins = current_coins + 6 * (cm / 10)
@@ -953,17 +1083,17 @@ async def fish(ctx):
                     inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
                     if inventory_data is None:
-                        inventory_ref.child(str(ctx.author.id)).set({'🐠' + str(int(time.time() * 1000)): cm})
+                        inventory_ref.child(str(ctx.author.id)).set({'🐠' + str(int(time.time() * 1000)): self.cm})
                     else:
                         current_tropical_fish = inventory_ref.child(str(ctx.author.id)).update({
-                            '🐠' + str(int(time.time() * 1000)): cm
+                            '🐠' + str(int(time.time() * 1000)): self.cm
                         })
 
                     game_run = False
                     active_games.pop(user_id, None)
                     return line
                 if what_to_change == '🐡':
-                    line = f'вы поймали рыбу агу ага размером {cm} сантиметров'
+                    line = f'вы поймали рыбу агу ага размером {self.cm} сантиметров'
                     # base 8 * cm / 10
                     # current_coins = user_data.get('coins', 0)
                     # new_coins = current_coins + 8 * (cm / 10)
@@ -972,10 +1102,10 @@ async def fish(ctx):
                     inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
                     if inventory_data is None:
-                        inventory_ref.child(str(ctx.author.id)).set({'🐡' + str(int(time.time() * 1000)): cm})
+                        inventory_ref.child(str(ctx.author.id)).set({'🐡' + str(int(time.time() * 1000)): self.cm})
                     else:
                         current_blowfish = inventory_ref.child(str(ctx.author.id)).update({
-                            '🐡' + str(int(time.time() * 1000)): cm
+                            '🐡' + str(int(time.time() * 1000)): self.cm
                         })
 
 
@@ -983,7 +1113,7 @@ async def fish(ctx):
                     active_games.pop(user_id, None)
                     return line
                 if what_to_change == '🪼':
-                    line = f'вы поймали медузу крутую размером {cm} сантиметров'
+                    line = f'вы поймали медузу крутую размером {self.cm} сантиметров'
                     # base 10 * cm / 10
                     # current_coins = user_data.get('coins', 0)
                     # new_coins = current_coins + 10 * (cm/10)
@@ -992,10 +1122,10 @@ async def fish(ctx):
                     inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
                     if inventory_data is None:
-                        inventory_ref.child(str(ctx.author.id)).set({'🪼' + str(int(time.time() * 1000)): cm})
+                        inventory_ref.child(str(ctx.author.id)).set({'🪼' + str(int(time.time() * 1000)): self.cm})
                     else:
                         current_jellyfish = inventory_ref.child(str(ctx.author.id)).update({
-                            '🪼' + str(int(time.time() * 1000)): cm
+                            '🪼' + str(int(time.time() * 1000)): self.cm
                         })
 
                     game_run = False
@@ -1003,7 +1133,7 @@ async def fish(ctx):
                     return line
 
                 if what_to_change == '🦐':
-                    line = f'вы поймали креветочку размером {cm} сантиметров'
+                    line = f'вы поймали креветочку размером {self.cm} сантиметров'
                     # base 11 * cm / 10
                     # current_coins = user_data.get('coins', 0)
                     # new_coins = current_coins + 10 * (cm/10)
@@ -1012,10 +1142,10 @@ async def fish(ctx):
                     inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
                     if inventory_data is None:
-                        inventory_ref.child(str(ctx.author.id)).set({'🦐' + str(int(time.time() * 1000)): cm})
+                        inventory_ref.child(str(ctx.author.id)).set({'🦐' + str(int(time.time() * 1000)): self.cm})
                     else:
                         current_shrimp = inventory_ref.child(str(ctx.author.id)).update({
-                            '🦐' + str(int(time.time() * 1000)): cm
+                            '🦐' + str(int(time.time() * 1000)): self.cm
                         })
 
                     game_run = False
@@ -1023,7 +1153,7 @@ async def fish(ctx):
                     return line
 
                 if what_to_change == '🦈':
-                    line = f'Трепещи, rer_5111, я поймать АКУЛУ размером {cm} сантиметров!'
+                    line = f'Трепещи, rer_5111, я поймать АКУЛУ размером {self.cm} сантиметров!'
                     # base 18 * cm / 10
                     # current_coins = user_data.get('coins', 0)
                     # new_coins = current_coins + 10 * (cm/10)
@@ -1032,10 +1162,10 @@ async def fish(ctx):
                     inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
                     if inventory_data is None:
-                        inventory_ref.child(str(ctx.author.id)).set({'🦈' + str(int(time.time() * 1000)): cm})
+                        inventory_ref.child(str(ctx.author.id)).set({'🦈' + str(int(time.time() * 1000)): self.cm})
                     else:
                         current_shark = inventory_ref.child(str(ctx.author.id)).update({
-                            '🦈' + str(int(time.time() * 1000)): cm
+                            '🦈' + str(int(time.time() * 1000)): self.cm
                         })
 
                     game_run = False
@@ -1300,6 +1430,65 @@ async def get_user(user_cool_id):
     return cool_dict[user_cool_id]
 
 
+@client.hybrid_command(name = "info", with_app_command = True)
+async def info(ctx, *, item: str):
+    user_id = ctx.author.id
+    inventory_data = inventory_ref.child(str(user_id)).get()
+
+    if inventory_data is None:
+        await ctx.send('xnj ты информацию ищешь в космосе (пантигон привет)')
+
+    dictionary = {}
+    for item_name, quantity in inventory_data.items():
+        dictionary[item_name] = quantity
+
+
+    available_items = {}
+    for item_name, quantity in dictionary.items():
+        if item in item_name or item == "inventory":
+            available_items[item_name] = quantity
+    pattern = r'[0-9]'
+    new_string = re.sub(pattern, '', item)
+
+    multiplier, word, name, description, func, icon, price = items.get(new_string)
+
+    if len(available_items) >= 1:
+
+        if len(available_items) > 1 and item != "inventory":
+            await ctx.send(
+                f"у тебя несколько '{item}'. выбери конкретный предмет, чтобы посмотреть информацию о нём\n(скопируй тег вместе с эмодзи или значение после двоеточий):\n" +
+                "\n".join([f"- {name}: {value} {word}" for name, value in available_items.items()])
+            )
+
+            def check(m):
+                return m.author == ctx.author
+
+        try:
+            if len(available_items) > 1:
+                response = await client.wait_for('message', check=check, timeout=30)
+
+                selected_item = response.content
+            else:
+                selected_item = new_string
+
+
+            for key, value in available_items.items():
+                if str(value) == selected_item or str(key) == selected_item or len(available_items) == 1:
+                    cleaned_text = re.sub(r'^[^\d]*', '', key)
+
+                    embed = discord.Embed(title=f'Карман Игрока {ctx.author.display_name}', colour=discord.Colour(int('5BC1FF', 16)))
+                    embed.add_field(name=new_string, value=f"{name}, предмет получен <t:{str(int(cleaned_text)//1000)}:F>")
+                    embed.add_field(name="Описание:", value=description)
+                    await ctx.send(embed=embed)
+
+
+
+        except asyncio.TimeoutError:
+            await ctx.send("ты чет призадумался, попробуй лучше снова")
+    else:
+        await ctx.send(f"хрень, такого предмета нету")
+
+
 @client.hybrid_command(name = "leaderboard", with_app_command = True)
 async def leaderboard(ctx):
     users_data = economy_ref.get()
@@ -1355,6 +1544,7 @@ async def leaderboard(ctx):
                 await interaction.response.edit_message(embed=get_leaderboard_page(current_page, per_page), view=self)
 
     await ctx.send(embed=embed, view=LeaderboardView())
+
 @client.command()
 @commands.cooldown(1, 5, commands.BucketType.user)
 @commands.has_any_role(1330807076057911296)
@@ -1595,57 +1785,5 @@ async def periodic_task():
 # @singleton
 # class MyClass(BaseClass):
 #     pass
-
-
-@client.command()
-@commands.cooldown(1, 6, commands.BucketType.user)
-async def simulation3(ctx):
-    def generate_game():
-        fish_emojis = ['🐟', '🐠', '🐡', '🪼']
-        fish_game = ['', '', '', '', '', '', '']
-        random_index = random.randint(0, 6)
-        fish_game[random_index] = random.choice(fish_emojis)
-        count = 0
-        for emoji in fish_game:
-            if emoji in fish_emojis:
-                pass
-            else:
-                fish_game[count] = "🟦"
-            count += 1
-
-
-        global line2
-        line2 = ''
-        for emoji in fish_game:
-            line2 = line2 + f''.join(emoji)
-            line2 = line2 + f''.join('\n')
-        return line2
-
-
-
-
-
-
-
-    class Buttons(discord.ui.View):
-        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬆️')
-        async def up(self, interaction: discord.Interaction, button: discord.ui.Button):
-            desc = ''
-            new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
-            await message.edit(embed=new_embed)
-        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='⬇️')
-        async def down(self, interaction: discord.Interaction, button: discord.ui.Button):
-            desc = ''
-            new_embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}', description=desc)
-            await message.edit(embed=new_embed)
-
-    view = Buttons(timeout=None)
-    embed = discord.Embed(colour=discord.Colour(int('5BC1FF', 16)), title=f'фишинг {ctx.author.display_name}',
-                          description=generate_game())
-
-    message = await ctx.send(embed=embed, view=view)
-
-
-# нужно сделать луп здесь шоп короче не лупится почему то можешь проверить типо таймер не выводит.
 
 client.run(os.environ['BOT_TOKEN'])
