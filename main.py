@@ -35,8 +35,6 @@ import logging
 
 from select import select
 
-from test import chosen_keys
-
 load_dotenv(dotenv_path='/root/DimaBot/.env')
 
 intents = discord.Intents.all()
