@@ -1,16 +1,23 @@
 import copy
+from asyncio import wait_for
+from cProfile import label
+from copy import deepcopy
 from datetime import datetime
 from datetime import timedelta
+from fileinput import filename
+from io import StringIO
+
 # from tkinter.ttk import Button
 import discord
 from threading import Timer
 import itertools
 import ast
+from discord import ui, SelectOption
 import re
 import asyncio
 import os
 import firebase_admin
-from discord.ext.commands import has_any_role
+from discord.ext.commands import has_any_role, param
 from firebase_admin import credentials
 from firebase_admin import firestore
 from firebase_admin import db
@@ -27,15 +34,18 @@ import os
 import regex
 from collections import Counter
 from string import digits
-
+from discord.ui import Button, Select
 from google_crc32c.python import value
+from grpc import server
 from rsa.randnum import randint
 from discord import app_commands
 import logging
 
 from select import select
 
-from test import chosen_keys
+"""
+Инициализация бота (включая env variables)
+"""
 
 load_dotenv(dotenv_path='/root/DimaBot/.env')
 
@@ -45,11 +55,8 @@ intents.message_content = True
 client = commands.Bot(command_prefix='?', intents=intents, help_command=None)
 url = os.environ['WEBHOOK_URL']
 
-
 service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
-
 service_account_dict = json.loads(service_account_json)
-
 cred = credentials.Certificate(service_account_dict)
 firebase_admin.initialize_app(cred, {
       'databaseURL': f'{os.getenv("LINK_DATABASE")}'
@@ -249,32 +256,6 @@ async def showlist(ctx):
     else:
         await ctx.send('Лист пуст')
 
-
-# @list.error  # ОШИБКА В ЛИСТЕ
-# async def list_error(ctx, error):
-#    if not len(game_list) == 0 and not isinstance(error, commands.CommandInvokeError):
-#        await ctx.send(f'Лист помер по причине: {error}')
-#    elif isinstance(error, commands.CommandInvokeError):
-#        async def backup_plan():
-#            message = ''
-#            global game_list
-#            temporary_game_list = ()
-#            keys, values = zip(*dict.items())
-#            for item in values:
-#                temporary_game_list = temporary_game_list + item
-#            for item in temporary_game_list:
-#                game_list.append(item)
-#            with open("ponos.txt", "w") as file:
-#                for item in game_list:
-#                    file.write(f'{str(item)}\n')
-#            with open("ponos.txt", "rb") as file:
-#                await ctx.send(file=discord.File(file, "ponos.txt"))
-#        await backup_plan()
-#    else:
-#        await ctx.send('Лист пуст')
-
-
-
 def iterate(author):
     word = ''
     for i in author:
@@ -285,60 +266,70 @@ def iterate(author):
             word = word + i
     return word
 
-@client.hybrid_command()
-async def submit(ctx, *, game):
-    result = ''
-    if len(str(game)) < 64:
-        pattern = "(?P<url>https?://[^\s]+)"
-        r1 = re.split(pattern, game)
-        r2 = re.findall(pattern, game)
-        for item in r1:
-            if item in r2:
-                result = result + '<' + item + '>'
+class GameSubmitSurvey(ui.Modal, title='Предложение игр для Геймнайта', ):
+    game1 = ui.TextInput(label='Название первой игры', max_length=63)
+    game2 = ui.TextInput(label='Название второй игры', max_length=63, required=False)
+    game3 = ui.TextInput(label='Название третьей игры', max_length=63, required=False)
+    confirm = ui.TextInput(label='я СОГЛАСЕН пойти на геймнайт', required=True)
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        submitted_games = []
+        for _ in [self.game1.value, self.game2.value, self.game3.value]:
+            result = ''
+            if len(str(_)) < 64:
+                pattern = "(?P<url>https?://[^\s]+)"
+                r1 = re.split(pattern, _)
+                r2 = re.findall(pattern, _)
+                for item in r1:
+                    if item in r2:
+                        result = result + '<' + item + '>'
+                    else:
+                        result = result + item
+            submitted_games.append(_)
+        submitted_games = [game for game in submitted_games if game]
+
+        for game in submitted_games:
+            user_data = games_ref.child(str(interaction.user.id)).get()
+            game_count = len(user_data.keys())
+            if user_data is None:
+                games_ref.child(str(interaction.user.id)).set({
+                    '-L' + str(int(time.time() * 1000)): str(game).replace('\n', '')  # Add the new game with a timestamp
+                })
             else:
-                result = result + item
-        # games_ref.child(str(ctx.author.id)).push(str(result).replace('\n', ''))
-      
-    user_data = games_ref.child(str(ctx.author.id)).get()
+                if game_count >= 3:
+                    summarize = [key for key in user_data.keys()]
+                    oldest_game = min(summarize)
+                    games_ref.child(str(interaction.user.id)).update({
+                        oldest_game: None,
+                        '-L' + str(int(time.time() * 1000)): str(game).replace('\n', '')
+                    })
 
-    if user_data is None:
-        games_ref.child(str(ctx.author.id)).set({
-            '-L' + str(int(time.time() * 1000)): str(result).replace('\n', '')  # Add the new game with a timestamp
-        })
-    else:
-        # Get the current game count
-        game_count = len(user_data.keys())
+                else:
+                    # If the user has less than 3 games, add the new game
+                    games_ref.child(str(interaction.user.id)).update({
+                        '-L' + str(int(time.time() * 1000)): str(game).replace('\n', '')
+                        # Add the new game with a timestamp
+                    })
 
-        if game_count >= 3:
-            print(user_data.keys())
-            print(user_data)
-            summarize = [key for key in user_data.keys()]
-            oldest_game = min(summarize)
-            games_ref.child(str(ctx.author.id)).update({
-                oldest_game: None,
-                '-L' + str(int(time.time() * 1000)): str(result).replace('\n', '')
-            })
-        else:
-            # If the user has less than 3 games, add the new game
-            games_ref.child(str(ctx.author.id)).update({
-                '-L' + str(int(time.time() * 1000)): str(result).replace('\n', '')  # Add the new game with a timestamp
-            })
-
-    display_namee = iterate(ctx.author.display_name)
-    embed1 = discord.Embed(description=f'**{display_namee}** предложил игру **{str(result)}**',
-                           colour=discord.Colour(int('ec5353', 16)))
-    if len(str(game)) < 64:
-        message = await ctx.send(embed=embed1)
+        display_namee = iterate(interaction.user.display_name)
+        embed1 = discord.Embed(description=f'**{display_namee}** предложил следующие игры: **{', '.join(map(str, submitted_games))}**',
+                               colour=discord.Colour(int('ec5353', 16)))
+        message = await interaction.followup.send(embed=embed1)
         message_id = message.id
         await message.add_reaction('tomatjret:1098375901248487424')
-    else:
-        await ctx.send(f'{ctx.author.mention} заебёшь')
 
-@client.hybrid_command()
-async def delete_item(ctx, *, suggestion):
-    user_data = games_ref.child(str(ctx.author.id)).get()
+
+
+@client.tree.command(name="game_submit", description="Предложить игры для Геймнайта")
+async def game_submit(interaction: discord.Interaction):
+    await interaction.response.send_modal(GameSubmitSurvey())
+
+@client.tree.command(name="game_delete", description="Удалить СВОЮ игру из Геймнайта")
+async def game_delete(interaction: discord.Interaction, suggestion: str):
+    user_data = games_ref.child(str(interaction.user.id)).get()
+    result = ''
     if user_data is not None:
-        t_list = user_data
+        t_list = deepcopy(user_data)
         pattern = "(?P<url>https?://[^\s]+)"
         r1 = re.split(pattern, suggestion)
         r2 = re.findall(pattern, suggestion)
@@ -347,17 +338,19 @@ async def delete_item(ctx, *, suggestion):
                 result = result + '<' + item + '>'
             else:
                 result = result + item
-        if result in t_list:
-            t_list.pop(t_list.index(result))
-            user_data.child(str(ctx.author.id)).set(t_list)
-            await ctx.send(f'Успешно удалён элемент {result}.')
+        matching_keys = [key for key, v in t_list.items() if v == result]
+        if matching_keys:
+            t_list.pop(matching_keys[0])
+            game_path = f"{str(interaction.user.id)}/{matching_keys[0]}"
+            games_ref.child(game_path).delete()
+            await interaction.response.send_message(f'Успешно удалён элемент {suggestion}.')
         else:
-            await ctx.send(f'Элемент не найден в вашем списке...')
+            await interaction.response.send_message(f'Элемент не найден в вашем списке...')
     else:
-        await ctx.send(f'User не найден в списке...')
+        await interaction.response.send_message(f'User не найден в списке...')
 
-@delete_item.error
-async def delete_item_error(ctx, error):
+@game_delete.error
+async def game_delete_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         await ctx.send(error)
 
@@ -370,7 +363,33 @@ async def clear(ctx):
 @client.command()
 @commands.is_owner()
 async def getdict(ctx):
-    await ctx.send("hello")
+    all_games = games_ref.get()
+    games_list = []
+    if all_games:
+        count = 1
+        for user_id, games in all_games.items():
+            for game in games.values():
+
+                data_object = {
+                    "fastid": f"{count}",
+                    "id": str(random.random()),
+                    "amount": 1,
+                    "name": game,
+                    "investors": []
+                }
+                games_list.append(data_object)
+                count+=1
+
+    json_file = StringIO()
+    json.dump(games_list, json_file, ensure_ascii=False, indent=2)
+    json_file.seek(0)
+
+    discord_file = discord.File(
+        filename="gamelist.json",
+        fp=json_file
+    )
+
+    await ctx.send(file=discord_file)
 
 @clear.error
 async def clear_error(ctx, error):
@@ -1498,16 +1517,39 @@ async def info(ctx, *, item: str):
 
 @client.hybrid_command(name = "leaderboard", with_app_command = True)
 async def leaderboard(ctx):
+    if ctx.interaction:
+        await ctx.interaction.response.defer()
     users_data = economy_ref.get()
+    specific_user_data = {f"{await ctx.guild.fetch_member(member.id)}": member.id for member in
+                          ctx.guild.members}
+
     users = {}
     for user_id, money in users_data.items():
         user_cool_id = await get_user(user_id)
         users[user_cool_id] = int(money.get("coins"))
 
+    def find_money(cool_user_id):
+        return economy_ref.child(str(cool_user_id)).get()
+
     def get_sorted():
-        return sorted(users.items(), key=lambda x: x[1], reverse=True)
+        if int(is_global) == 1:
+            return sorted(users.items(), key=lambda x: x[1], reverse=True)
+        else:
+            coins_data = {}
+            for nickname, specific_user_id in specific_user_data.items():
+                try:
+                    coins_dict = find_money(specific_user_id)
+                    coins = int(coins_dict.get('coins'))
+                    if coins_dict is not None:
+                        coins_data[nickname] = coins
+                    else:
+                        pass
+                except:
+                    pass
+            return sorted(coins_data.items(), key=lambda x: x[1], reverse=True)
 
     def get_leaderboard_page(page: int, per_page: int = 10):
+
         sorted_data = get_sorted()
         start = (page - 1) * per_page
         end = start + per_page
@@ -1529,7 +1571,43 @@ async def leaderboard(ctx):
     current_page = 1
     per_page = 10
 
-    embed = get_leaderboard_page(current_page, per_page)
+    # embed = get_leaderboard_page(current_page, per_page)
+    class ServerSelectView(discord.ui.View):
+        def __init__(self, author_id: int, timeout=60):
+            super().__init__(timeout=timeout)
+            self.author_id = author_id
+            self.servers = list(client.guilds)
+            menu = Select(
+                placeholder="Выберите тип Лидерборда",  # Текст по умолчанию
+                options=[
+                    discord.SelectOption(
+                        label="Локальный Лидерборд",
+                        value="0",
+                        description="Показывает лидерборд текущего сервера"
+                    ),
+                    discord.SelectOption(
+                        label="Глобальный Лидерборд",
+                        value="1",
+                        description="Показывает лидерборд со всех серверов"
+                    ),
+                ]
+            )
+
+            menu.callback = self.on_select
+            self.add_item(menu)
+
+        async def interaction_check(self, interaction: discord.Interaction) -> bool:
+            if interaction.user.id != self.author_id:
+                return False
+            return True
+
+        async def on_select(self, interaction: discord.Interaction):
+            await interaction.response.defer()
+            global is_global
+            is_global = interaction.data["values"][0]
+
+            await interaction.edit_original_response(embed=get_leaderboard_page(current_page, per_page),
+                                                         view=LeaderboardView())
 
     class LeaderboardView(discord.ui.View):
         def __init__(self, timeout=60):
@@ -1550,7 +1628,7 @@ async def leaderboard(ctx):
                 current_page += 1
                 await interaction.response.edit_message(embed=get_leaderboard_page(current_page, per_page), view=self)
 
-    await ctx.send(embed=embed, view=LeaderboardView())
+    await ctx.send(view=ServerSelectView(author_id=ctx.author.id))
 
 @client.command()
 @commands.cooldown(1, 5, commands.BucketType.user)
