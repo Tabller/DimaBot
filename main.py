@@ -40,7 +40,6 @@ from grpc import server
 from rsa.randnum import randint
 from discord import app_commands
 import logging
-
 from select import select
 
 """
