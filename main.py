@@ -51,7 +51,7 @@ load_dotenv(dotenv_path='/root/DimaBot/.env')
 intents = discord.Intents.all()
 intents.message_content = True
 
-client = commands.Bot(command_prefix='?', intents=intents, help_command=None)
+client = commands.Bot(command_prefix='!', intents=intents, help_command=None)
 url = os.environ['WEBHOOK_URL']
 
 service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
