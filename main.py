@@ -196,9 +196,11 @@ async def help(ctx, member: discord.Member = None):
     name = member.display_name
     pfp = member.display_avatar
 
-    commands_twitch = {
-        "/submit [игра]": "Предложить игру для стрима в канал <#1185909058910310420>",
-        "/showlist": "Посмотреть список предложенных игр."
+    commands_gamenight = {
+        "/submit [игра]": "Предложить игру для геймнайта/стрима",
+        "/showlist": "Посмотреть список предложенных игр.",
+        "/game_delete [игра]": "Удалить СВОЮ игру из списка предложенных игр.",
+        "!getdict": "Получить список предложенных игр в формате json."
     }
     commands_rpg = {
         "!balance (@юзер)": "Проверить свой карман (на наличие денег).",
@@ -224,8 +226,8 @@ async def help(ctx, member: discord.Member = None):
                           description='Здесь находится вся актуальная информация о ссылках, которые ведут на томата.',
                           colour=discord.Colour(int('a970ff', 16)))
 
-    embed.add_field(name="Команды категории Твич", value="дима подписчик", inline=True)
-    for command, description in commands_twitch.items():
+    embed.add_field(name="Команды категории Геймнайт", value="дима джойстик", inline=True)
+    for command, description in commands_gamenight.items():
         embed.add_field(name=f"`{command}`", value=f"{description}", inline=False)
     embed.add_field(name="Команды категории Экономика", value="дима рпг игра", inline=True)
     for command, description in commands_rpg.items():
