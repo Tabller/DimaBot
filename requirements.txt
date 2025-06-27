@@ -4,3 +4,5 @@ google-cloud-firestore
 google-cloud-storage
 google-cloud-functions
 google-cloud-secret-manager
+python-dotenv
+regex
