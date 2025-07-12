@@ -1,46 +1,27 @@
 import copy
-from asyncio import wait_for
-from cProfile import label
-from copy import deepcopy
-from datetime import datetime
-from datetime import timedelta
-from fileinput import filename
-from io import StringIO
-
-# from tkinter.ttk import Button
-import discord
-from threading import Timer
 import itertools
-import ast
-from discord import ui, SelectOption
+import discord
 import re
 import asyncio
 import os
 import firebase_admin
-from discord.ext.commands import has_any_role, param
-from firebase_admin import credentials
-from firebase_admin import firestore
-from firebase_admin import db
-from discord.enums import ButtonStyle
-from discord.ext import commands, tasks
-from discord.utils import get
-from discord import Webhook, SyncWebhook, Interaction, Color
-import aiohttp
 import random
 import json
 import time
+import threading
+import queue
+from copy import deepcopy
+from datetime import datetime
+from datetime import timedelta
+from io import StringIO
+from discord import ui, Interaction, Color
+from discord.ext.commands import has_any_role, param
+from firebase_admin import db, credentials
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
-import os
-import regex
-from collections import Counter
-from string import digits
-from discord.ui import Button, Select
-from google_crc32c.python import value
-from grpc import server
-from rsa.randnum import randint
+from discord.ui import Select
 from discord import app_commands
-import logging
-from select import select
+
 
 """
 Инициализация бота (включая env variables)
@@ -52,7 +33,7 @@ intents = discord.Intents.all()
 intents.message_content = True
 
 client = commands.Bot(command_prefix='!', intents=intents, help_command=None)
-url = os.environ['WEBHOOK_URL']
+FEEDBACK_CHANNEL_ID = os.environ['FEEDBACK_CHANNEL_ID']
 
 service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
 service_account_dict = json.loads(service_account_json)
@@ -65,8 +46,18 @@ economy_ref = db.reference('economy')
 inventory_ref = db.reference('inventory')
 penalty_ref = db.reference('penalty')
 
+"""
+События и Задания
+"""
+
+favourite_games = itertools.cycle(["Hollow Knight", "Celeste", "Undertale", "Deltarune", "Transformice", "Slime Rancher", "Don't Starve Together", "Stardew Valley", "Roblox", "Geometry Dash", "Coromon", "Castle Crashers", "Minecraft", "Terraria", "Lethal Company", "Starbound", "Streets of Rogue", ""])
+@tasks.loop(seconds=60)
+async def presence_loop():
+    await client.change_presence(activity=discord.Game(next(favourite_games)))
+
 @client.event
 async def on_ready():
+    """Функция, срабатывающая при включении бота"""
     print(f'Bot {client.user} is online.')
     client.loop.create_task(periodic_task())
     try:
@@ -74,8 +65,8 @@ async def on_ready():
         print(f'Synced {len(synced)} interaction command(s).')
     except Exception as exception:
         print(exception)
-    activity = discord.Game("ponos")
-    await client.change_presence(activity=activity)
+
+    presence_loop.start()
 
 
 @client.event
@@ -94,13 +85,13 @@ async def on_message(message):
 
     await client.process_commands(message)
 
+"""
+Команды бота
+"""
 
 @client.hybrid_command()
 async def test(ctx, *, arg):
     await ctx.send(arg)
-
-
-
 
 @client.hybrid_command()
 @commands.has_any_role(968045914591723582)
@@ -197,7 +188,7 @@ async def help(ctx, member: discord.Member = None):
     pfp = member.display_avatar
 
     commands_gamenight = {
-        "/submit [игра]": "Предложить игру для геймнайта/стрима",
+        "/game_submit": "Предложить игры для геймнайта/стрима",
         "/showlist": "Посмотреть список предложенных игр.",
         "/game_delete [игра]": "Удалить СВОЮ игру из списка предложенных игр.",
         "!getdict": "Получить список предложенных игр в формате json."
@@ -206,7 +197,7 @@ async def help(ctx, member: discord.Member = None):
         "!balance (@юзер)": "Проверить свой карман (на наличие денег).",
         "!fish": "Рыбалка симулятор.",
         "!sell [:emoji:/inventory]": "Продать предмет(ы)/весь инвентарь",
-        "!leaderboard": "Просмотр таблицы монет",
+        "/leaderboard": "Просмотр таблицы монет",
         "!shop": "Просмотр магазина, который обновляется каждые 6 часов.",
         "!craft [2-3 :emoji:]": "Создать предмет, если рецепт окажется верным.",
         "!pin [:emoji:]": "Пригвоздить предмет, чтобы его невозможно было продать, или отгвоздить его.",
@@ -400,24 +391,33 @@ async def clear_error(ctx, error):
 
 @client.hybrid_command()
 async def feedback(ctx, *, text):
-    async def ponos(prompt, username, avatar):
-        channel = client.get_channel(ctx.channel.id)
-        web_temporary = await client.fetch_webhook(1199759425519489074)
+    message_time = ctx.message.created_at
+    author = ctx.author
+    jump_url = ctx.message.jump_url
+    channel = client.get_channel(ctx.channel.id) if hasattr(ctx.channel, 'name') else 'DM'
+    embed = discord.Embed(description=text, title="Фидбек ft. Димабот").set_footer(text=ctx.author.display_name,
+                                                                                   icon_url=ctx.author.avatar.url)
 
-        class AnswerButton(discord.ui.View):
-            @discord.ui.button(label='ответить', style=discord.ButtonStyle.success)
-            async def respond3(self, interaction: discord.Interaction, button: discord.ui.Button):
-                await interaction.channel.send('Введите ответ:')
+    class AnswerForm(ui.Modal, title='Ответ на входящий фидбек'):
+        Field = ui.TextInput(label="Текст")
 
-                def check(m):
-                    return m.author.id == interaction.user.id
+        async def on_submit(self, interaction: discord.Interaction):
+            await interaction.response.defer(ephemeral=True)
+            response = self.Field.value
+            embed4 = discord.Embed(description=f'Ответ: {response}')
+            embed4.add_field(name=" ", value=f"[Ссылка на сообщение]({jump_url})", inline=False)
+            embed4.set_footer(text=f"{interaction.user.display_name} ответил на фидбек: {message_time.strftime("%d.%m.%Y")} от {author}", icon_url=interaction.user.avatar.url)
+            await channel.send(embed=embed4)
 
-                message = await client.wait_for('message', check=check)
-                embed4 = discord.Embed(description=f'{message.author.display_name}: {message}')
-                await channel.send(embed=embed4)
-        view = AnswerButton(timeout=None)
-        await web_temporary.send(content=prompt, username=username, avatar_url=avatar, view=view)
-    await ponos(prompt=text, username=ctx.author.display_name, avatar=ctx.author.display_avatar)
+
+    class AnswerButton(discord.ui.View):
+        @discord.ui.button(label='ответить', style=discord.ButtonStyle.success)
+        async def respond3(self, interaction: discord.Interaction, item):
+            await interaction.response.send_modal(AnswerForm())
+       #    await interaction.edit_original_response(view=None)
+    send_feedback = await client.get_channel(int(FEEDBACK_CHANNEL_ID)).send(embed=embed,
+                                                                            view=AnswerButton(timeout=None))
+
     await ctx.send('фидбек отправлен (наверное)')
 
 '''
@@ -520,6 +520,7 @@ async def id26use(ctx, item):
 
 
 '''
+Секция со словарём предметов
 Формат: Множитель, слово, название предмета, описание предмета, функция использования, эмодзи предмета, стандартная цена в магазине;
 '''
 
@@ -554,6 +555,7 @@ items = {
         }
 
 '''
+Секция с картами для рыбалки
 Формат: Карта, описание, кол-во рыб, координаты hook, координаты лодки, шанс на сокровище, случайные события;
 '''
 
@@ -597,11 +599,14 @@ maps = {
                  "placeholder"]
 }
 
-
+'''
+Команды бота
+'''
 
 @client.command()
 @commands.cooldown(1, 3, commands.BucketType.user)
 async def craft(ctx, *, emoji):
+    """Команда для крафта различных предметов"""
     crafting_dict = {
         frozenset(['🪚', '🚪', '🔩']): items.get('🎣'),
         frozenset(['🧬', '📟', '🖲️']): items.get('🤖'),
@@ -677,6 +682,7 @@ async def craft(ctx, *, emoji):
 @client.command()
 @commands.cooldown(1, 10, commands.BucketType.user)
 async def balance(ctx, member: discord.Member = None):
+    """Команда для открытия своего баланса-инвентаря"""
     if member:
         user_data = economy_ref.child(str(member.id)).get()
         user_name = member.display_name
@@ -759,6 +765,7 @@ active_games = {}
 
 @client.hybrid_command()
 async def sell(ctx, item: str):
+    """Команда для продажи вещи/вещей/всего инвентаря"""
     user_id = ctx.author.id
     inventory_data = inventory_ref.child(str(user_id)).get()
 
@@ -1859,17 +1866,5 @@ async def periodic_task():
         task = asyncio.create_task(shop_func())
         await task
 
-
-# def singleton(class_):
-#     instances = {}
-#     def getinstance(*args, **kwargs):
-#         if class_ not in instances:
-#             instances[class_] = class_(*args, **kwargs)
-#         return instances[class_]
-#     return getinstance
-#
-# @singleton
-# class MyClass(BaseClass):
-#     pass
 
 client.run(os.environ['BOT_TOKEN'])
