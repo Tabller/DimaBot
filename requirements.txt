@@ -6,3 +6,4 @@ google-cloud-functions
 google-cloud-secret-manager
 python-dotenv
 regex
+requests
