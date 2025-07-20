@@ -300,7 +300,7 @@ async def gamenight_list(interaction: discord.Interaction):
                     emoji="🐓",
                 ))
 
-            async def respond(self, button_interaction: discord.Interaction, button: Button):
+            async def respond(self, button_interaction: discord.Interaction):
                 await button_interaction.response.defer()
 
         await interaction.response.send_message(embed=embed, view=DownloadButton())
