@@ -1,15 +1,17 @@
 import copy
 import itertools
+from http.client import responses
+from tkinter import Button
+import string
 import discord
 import re
+import requests
 import asyncio
 import os
 import firebase_admin
 import random
 import json
 import time
-import threading
-import queue
 from copy import deepcopy
 from datetime import datetime
 from datetime import timedelta
@@ -31,8 +33,8 @@ load_dotenv(dotenv_path='/root/DimaBot/.env')
 
 intents = discord.Intents.all()
 intents.message_content = True
-
-client = commands.Bot(command_prefix='!', intents=intents, help_command=None)
+SERVER_GAME_NIGHTS = {"SERVER": "ID"}
+client = commands.Bot(command_prefix='?', intents=intents, help_command=None)
 FEEDBACK_CHANNEL_ID = os.environ['FEEDBACK_CHANNEL_ID']
 
 service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
@@ -188,10 +190,10 @@ async def help(ctx, member: discord.Member = None):
     pfp = member.display_avatar
 
     commands_gamenight = {
-        "/game_submit": "Предложить игры для геймнайта/стрима",
-        "/showlist": "Посмотреть список предложенных игр.",
-        "/game_delete [игра]": "Удалить СВОЮ игру из списка предложенных игр.",
-        "!getdict": "Получить список предложенных игр в формате json."
+        "/gamenight_start": "Открыть предложку игр для Геймнайта (админы могут только)",
+        "/gamenight_list": "Посмотреть список предложенных игр для Геймнайта и возможность скачать json-file.",
+        "/gamenight_end": "Закрыть предложку игр Геймнайта (админы могут только)",
+        "/gamenight_gamedelete [игра]": "Удалить СВОЮ игру из списка предложенных игр."
     }
     commands_rpg = {
         "!balance (@юзер)": "Проверить свой карман (на наличие денег).",
@@ -214,7 +216,7 @@ async def help(ctx, member: discord.Member = None):
     }
 
     embed = discord.Embed(title='димабот ft. Томатские Угодья',
-                          description='Здесь находится вся актуальная информация о ссылках, которые ведут на томата.',
+                          description='Здесь находится вся актуальная информация о боте (а также ссылка на твич томата)',
                           colour=discord.Colour(int('a970ff', 16)))
 
     embed.add_field(name="Команды категории Геймнайт", value="дима джойстик", inline=True)
@@ -236,17 +238,76 @@ async def help(ctx, member: discord.Member = None):
         discord.ui.Button(label='Twitch Channel', style=discord.ButtonStyle.link, url='https://www.twitch.tv/mrtomit'))
     await ctx.send(embed=embed, view=view)
 
-@client.hybrid_command()  # ЛИСТ СПИСКА
-async def showlist(ctx):
+@client.tree.command(name="gamenight_list", description="Просмотреть список и возможность скачать его в виде json-file")
+async def gamenight_list(interaction: discord.Interaction):
+    """Команда, которая генерирует и список, и json-file списка."""
+
+    """Генерация json-file списка"""
+    all_games = games_ref.get()
+    games_list = []
+    if all_games:
+        count = 1
+        for user_id, games in all_games.items():
+            for game in games.values():
+                data_object = {
+                    "fastid": f"{count}",
+                    "id": str(random.random()),
+                    "amount": 1,
+                    "name": game,
+                    "investors": []
+                }
+                games_list.append(data_object)
+                count += 1
+
+    json_str = json.dumps(games_list, ensure_ascii=False, indent=2)
+
+    bin_name = os.getenv("BIN_NAME") # 15 символов
+
+    filename = "gamenight.json"
+
+    response = requests.post(
+        f"https://filebin.net/{bin_name}/{filename}",
+        data=json_str.encode("utf-8"),
+        headers={"Content-Type": "application/json"}
+    )
+
+    if response.status_code == 201:
+        file_url = f"https://filebin.net/{bin_name}/{filename}"
+    else:
+        print(f"{response.status_code}, {response.text}")
+
+    """Генерация списка"""
     message = ''
     all_games = games_ref.get()
     if all_games:
         for user_id, games in all_games.items():
             for game in games.values():
                 message += f"{game}\n"
-        await ctx.send(message)
+
+        embed = discord.Embed(
+            title="Список возможных игр Геймнайта:",
+            description=f"{message}",
+            color=Color.gold(),
+        )
+
+
+        class DownloadButton(discord.ui.View):
+            def __init__(self):
+                super().__init__(timeout=None)
+                self.add_item(discord.ui.Button(
+                    label='скачать json для вставки в рулетку',
+                    style=discord.ButtonStyle.gray,
+                    url=str(file_url),
+                    emoji="🐓",
+                ))
+
+            async def respond(self, button_interaction: discord.Interaction, button: Button):
+                await button_interaction.response.defer()
+
+        await interaction.response.send_message(embed=embed, view=DownloadButton())
     else:
-        await ctx.send('Лист пуст')
+        await interaction.response.send_message('Лист пуст')
+
 
 def iterate(author):
     word = ''
@@ -281,7 +342,7 @@ class GameSubmitSurvey(ui.Modal, title='Предложение игр для Г�
         submitted_games = [game for game in submitted_games if game]
 
         for game in submitted_games:
-            user_data = games_ref.child(str(interaction.user.id)).get()
+            user_data = games_ref.child(str(interaction.user.id)).get() or {}
             game_count = len(user_data.keys())
             if user_data is None:
                 games_ref.child(str(interaction.user.id)).set({
@@ -310,14 +371,36 @@ class GameSubmitSurvey(ui.Modal, title='Предложение игр для Г�
         message_id = message.id
         await message.add_reaction('tomatjret:1098375901248487424')
 
+@client.tree.command(name="gamenight_start", description="Начать Геймнайт и запустить предложку игр")
+@commands.has_permissions(administrator=True)
+async def gamenight_start(interaction: discord.Interaction):
+    if not (SERVER_GAME_NIGHTS.get(str(interaction.guild.id))):
+        SERVER_GAME_NIGHTS[str(interaction.guild.id)] = len(SERVER_GAME_NIGHTS)
+        print(SERVER_GAME_NIGHTS)
+        embed = discord.Embed(description="рулетка инициализирована предлагайте игры", color=Color.green())
+        class SubmitButton(discord.ui.View):
+            @discord.ui.button(label='предложить игру', style=discord.ButtonStyle.success, emoji="😂")
+            async def respond(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                if SERVER_GAME_NIGHTS.get(str(button_interaction.guild.id)):
+                    await button_interaction.response.send_modal(GameSubmitSurvey())
+                else:
+                    await button_interaction.response.send_message("геймнайт уже закончился", ephemeral=True)
+        await interaction.response.send_message(embed=embed, view=SubmitButton(timeout=None))
+    else:
+        await interaction.response.send_message("ну геймнайт уже начат у твоего сервера", ephemeral=True)
 
+@client.tree.command(name="gamenight_end", description="Закончить предложку Геймнайта")
+@commands.has_permissions(administrator=True)
+async def gamenight_end(interaction: discord.Interaction):
+    if SERVER_GAME_NIGHTS.get(str(interaction.guild.id)):
+        SERVER_GAME_NIGHTS.pop(str(interaction.guild.id))
+        embed = discord.Embed(description="предложка всё! больше нельзя предлагать игры", color=Color.red())
+    else:
+        embed = discord.Embed(description="ау геймнайта ещё нету")
+    await interaction.response.send_message(embed=embed)
 
-@client.tree.command(name="game_submit", description="Предложить игры для Геймнайта")
-async def game_submit(interaction: discord.Interaction):
-    await interaction.response.send_modal(GameSubmitSurvey())
-
-@client.tree.command(name="game_delete", description="Удалить СВОЮ игру из Геймнайта")
-async def game_delete(interaction: discord.Interaction, suggestion: str):
+@client.tree.command(name="gamenight_gamedelete", description="Удалить СВОЮ игру из Геймнайта")
+async def gamenight_gamedelete(interaction: discord.Interaction, suggestion: str):
     user_data = games_ref.child(str(interaction.user.id)).get()
     result = ''
     if user_data is not None:
@@ -341,7 +424,7 @@ async def game_delete(interaction: discord.Interaction, suggestion: str):
     else:
         await interaction.response.send_message(f'User не найден в списке...')
 
-@game_delete.error
+@gamenight_gamedelete.error
 async def game_delete_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         await ctx.send(error)
@@ -353,8 +436,7 @@ async def clear(ctx):
     await ctx.send('Лист очищен.')
 
 @client.command()
-@commands.is_owner()
-async def getdict(ctx):
+async def gamenight_json(ctx):
     all_games = games_ref.get()
     games_list = []
     if all_games:
