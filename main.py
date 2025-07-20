@@ -34,7 +34,7 @@ load_dotenv(dotenv_path='/root/DimaBot/.env')
 intents = discord.Intents.all()
 intents.message_content = True
 SERVER_GAME_NIGHTS = {"SERVER": "ID"}
-client = commands.Bot(command_prefix='?', intents=intents, help_command=None)
+client = commands.Bot(command_prefix='!', intents=intents, help_command=None)
 FEEDBACK_CHANNEL_ID = os.environ['FEEDBACK_CHANNEL_ID']
 
 service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
