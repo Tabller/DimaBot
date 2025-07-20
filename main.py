@@ -1,7 +1,6 @@
 import copy
 import itertools
 from http.client import responses
-from tkinter import Button
 import string
 import discord
 import re
