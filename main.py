@@ -22,20 +22,28 @@ from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from discord.ui import Select
 from discord import app_commands
-
+from google.api_core.operations_v1.operations_client_config import config
 
 """
-Инициализация бота (включая env variables)
+Инициализация бота
 """
 
 load_dotenv(dotenv_path='/root/DimaBot/.env')
 
 intents = discord.Intents.all()
 intents.message_content = True
-SERVER_GAME_NIGHTS = {"SERVER": "ID"}
 client = commands.Bot(command_prefix='!', intents=intents, help_command=None)
-FEEDBACK_CHANNEL_ID = os.environ['FEEDBACK_CHANNEL_ID']
 
+"""
+Env Variables и прочие вещи (базы данных)
+"""
+
+CURRENT_SERVER = os.getenv("SERVER") # ID сервера, на котором запущен бот.
+SERVER_GAME_NIGHTS = {"SERVER": "ID"} # Список серверов, на которых запущены геймнайты.
+TIMEOUT_CHANNEL = os.getenv("TIMEOUT_CHANNEL") # ID канала для отправки в таймаут.
+TIMEOUT_ROLE = os.getenv("TIMEOUT_ROLE") # ID роли, которая выдаётся при таймауте.
+BOT_CHANNEL_ID = os.getenv("BOT_CHANNEL") # ID технического канала, куда будут присылаться некоторые сообщения от бота (если это необходимо)
+FEEDBACK_CHANNEL_ID = os.environ['FEEDBACK_CHANNEL_ID']
 service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
 service_account_dict = json.loads(service_account_json)
 cred = credentials.Certificate(service_account_dict)
@@ -72,7 +80,7 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if message.guild.id == 967091313038196796:
+    if message.guild.id == int(CURRENT_SERVER):
         user_data = economy_ref.child(str(message.author.id)).get()
         if user_data is None:
             economy_ref.child(str(message.author.id)).set({
@@ -94,85 +102,8 @@ async def on_message(message):
 async def test(ctx, *, arg):
     await ctx.send(arg)
 
-@client.hybrid_command()
-@commands.has_any_role(968045914591723582)
-async def verify(ctx, *, nick):
-    if str(ctx.channel.id) == '1109099791419457627':
-        if len(nick) < 33:
-            embed4 = discord.Embed(description="Вас добавили на рассмотрение. Ожидайте сообщения в ЛС!", colour=discord.Colour(int('5BC1FF', 16)))
-            await ctx.send(embed=embed4)
-            channel = client.get_channel(1236673315146301480)
-            id_thing = ctx.author.id
-            guild = client.get_guild(967091313038196796)
-            member = guild.get_member(ctx.author.id)
-            gaming_role = 1054830462108971149
-            not_gaming_role = 968045914591723582
-            game_admin_user = client.get_user(347365756301737994)
-            class Buttons(discord.ui.View):
-                @discord.ui.button(label='Подтвердить', style=discord.ButtonStyle.success)
-                async def respond1(self, interaction: discord.Interaction, button: discord.ui.Button):
-                    if interaction.user.get_role(1053297629112569926):
-                        view.stop()
-                        button.disabled = True
-                        user = client.get_user(id_thing)
-                        decline_button = None
-                        for child in self.children:
-                            if type(child) == discord.ui.Button and child.label == "Отклонить":
-                                decline_button = child
-                                child.disabled = True
-                                break
-
-                        embed3 = discord.Embed(description="Вас добавили в вайтлист.\nПриятной игры!", colour=discord.Colour(int('5BC1FF', 16)))
-                        await interaction.message.edit(content=f'Вы приняли в вайтлист (я надеюсь).', embed=None, view=self)
-                        if user:
-                            await user.send(embed=embed3)
-                            await member.edit(nick=nick)
-                            await member.remove_roles(member.guild.get_role(not_gaming_role))
-                            await member.add_roles(member.guild.get_role(gaming_role))
-
-                @discord.ui.button(label='Отклонить', style=discord.ButtonStyle.danger)
-                async def respond2(self, interaction: discord.Interaction, button: discord.ui.Button):
-                    if interaction.user.get_role(1053297629112569926):
-                        view.stop()
-                        user = client.get_user(id_thing)
-                        await interaction.channel.send('Введите причину:')
-
-                        def check(m):
-                            return m.author.id == interaction.user.id
-
-                        message = await client.wait_for('message', check=check)
-                        embed2 = discord.Embed(description=f"Вас **не добавили** в вайтлист, но вы всё ещё можете общаться на сервере.\nПричина: {message.content}", colour=discord.Colour(int('5BC1FF', 16)))
-                        button.disabled = True
-                        accept_button = None
-                        for child in self.children:
-                            if type(child) == discord.ui.Button and child.label == "Подтвердить":
-                                accept_button = child
-                                child.disabled = True
-                                break
-                        await interaction.message.edit(content=f'Вы **не приняли** {iterate(ctx.author.display_name)} в вайтлист.', embed=None, view=self)
-                        if user:
-                            await user.send(embed=embed2)
-            view = Buttons(timeout=None)
-            embed = discord.Embed(description=f'Пользователь: **{iterate(ctx.author.display_name)}** \nНик: **{iterate(nick)}**', colour=discord.Colour(int('5BC1FF', 16)))
-            await channel.send(content=game_admin_user.mention,embed=embed, view=view)
-        else:
-            await ctx.send('слишком длинный никнейм')
-    else:
-        await ctx.send('юзай в другом канале')
-
-@verify.error
-async def verify_error(ctx, error):
-    if isinstance(error, commands.MissingAnyRole):
-        await ctx.send('ты и так верифицирован')
-
-@client.command()
-async def detect(ctx, user: discord.Member):
-    await ctx.send(user)
-
-
 dict = {}
 game_list = []
-
 
 class Menu(discord.ui.View):
     def __init__(self):
@@ -211,7 +142,8 @@ async def help(ctx, member: discord.Member = None):
 
     commands_other = {
         "!feedback [текст]": "Отправить фидбек о боте (идеи, впечатления и так далее).",
-        "!meme": "Отправляет рандомный мем из коллекции."
+        "!meme": "Отправляет рандомный мем из коллекции.",
+        "!test [сообщение]": "Повторяет за пользователем всё, что он напишет."
     }
 
     embed = discord.Embed(title='димабот ft. Томатские Угодья',
@@ -322,9 +254,12 @@ class GameSubmitSurvey(ui.Modal, title='Предложение игр для Г�
     game1 = ui.TextInput(label='Название первой игры', max_length=63)
     game2 = ui.TextInput(label='Название второй игры', max_length=63, required=False)
     game3 = ui.TextInput(label='Название третьей игры', max_length=63, required=False)
-    confirm = ui.TextInput(label='я СОГЛАСЕН пойти на геймнайт', required=True)
+    confirm = ui.TextInput(label='я СОГЛАСЕН что ПРИДЁТСЯ пойти на геймнайт', placeholder="да", required=True)
     async def on_submit(self, interaction: discord.Interaction):
+        if self.confirm.value.lower() != "да":
+            return
         await interaction.response.defer(ephemeral=True)
+        target_channel = interaction.client.get_channel(int(BOT_CHANNEL_ID))
         submitted_games = []
         for _ in [self.game1.value, self.game2.value, self.game3.value]:
             result = ''
@@ -366,7 +301,7 @@ class GameSubmitSurvey(ui.Modal, title='Предложение игр для Г�
         display_namee = iterate(interaction.user.display_name)
         embed1 = discord.Embed(description=f'**{display_namee}** предложил следующие игры: **{', '.join(map(str, submitted_games))}**',
                                colour=discord.Colour(int('ec5353', 16)))
-        message = await interaction.followup.send(embed=embed1)
+        message = await target_channel.send(embed=embed1)
         message_id = message.id
         await message.add_reaction('tomatjret:1098375901248487424')
 
@@ -375,7 +310,6 @@ class GameSubmitSurvey(ui.Modal, title='Предложение игр для Г�
 async def gamenight_start(interaction: discord.Interaction):
     if not (SERVER_GAME_NIGHTS.get(str(interaction.guild.id))):
         SERVER_GAME_NIGHTS[str(interaction.guild.id)] = len(SERVER_GAME_NIGHTS)
-        print(SERVER_GAME_NIGHTS)
         embed = discord.Embed(description="рулетка инициализирована предлагайте игры", color=Color.green())
         class SubmitButton(discord.ui.View):
             @discord.ui.button(label='предложить игру', style=discord.ButtonStyle.success, emoji="😂")
@@ -1495,7 +1429,7 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
             else:
                 penalty_ref.child(str(member.id)).update({'penalty': int(bananas)})
 
-        channel = client.get_channel(1330805977011851315)
+        channel = client.get_channel(int(TIMEOUT_CHANNEL))
         if channel:
             embed = discord.Embed(
                 title = f"добро пожаловать в говнецо, {member}",
@@ -1721,7 +1655,7 @@ async def leaderboard(ctx):
 
 @client.command()
 @commands.cooldown(1, 5, commands.BucketType.user)
-@commands.has_any_role(1330807076057911296)
+@commands.has_any_role(int(TIMEOUT_ROLE))
 async def почистить(ctx, emoji):
     inventory_data = economy_ref.get()
     cool_list = []
