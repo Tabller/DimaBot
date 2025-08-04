@@ -116,8 +116,8 @@ async def on_guild_join(guild: Guild):
     if not (str(guild.id) in servers_data):
         server = servers_ref.child(str(guild.id))
         server.set({'PREFIX': f'{PREFIX}', # Префикс бота.
-                    'TIMEOUT_CHANNEL': 'None', # ID канала для отправки в таймаут.
-                    'TIMEOUT_ROLE': 'None', # ID роли, которая выдаётся при таймауте.
+                    'TIMEOUT_CHANNEL_ID': 'None', # ID канала для отправки в таймаут.
+                    'TIMEOUT_ROLE_ID': 'None', # ID роли, которая выдаётся при таймауте.
                     'BOT_CHANNEL_ID': 'None'}) # ID технического канала, куда будут присылаться некоторые сообщения от бота (если это необходимо)
         owner = await client.fetch_user(guild.owner.id)
 
