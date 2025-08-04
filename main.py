@@ -15,14 +15,59 @@ from copy import deepcopy
 from datetime import datetime
 from datetime import timedelta
 from io import StringIO
-from discord import ui, Interaction, Color
+from discord import ui, Interaction, Color, Guild
 from discord.ext.commands import has_any_role, param
 from firebase_admin import db, credentials
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from discord.ui import Select
 from discord import app_commands
+from collections import defaultdict
 from google.api_core.operations_v1.operations_client_config import config
+
+
+"""
+Env Variables и прочие вещи (базы данных)
+"""
+LOCALIZATION_DICT = {} # Here goes all localizations (maybe in some distant future).
+WELCOME_MESSAGE_EN = "Hello! it looks like ur trying to install dimabot on your server (or someone is trying to), however, itz not working properly yet vro... owner or any admin should probably configure bot's settings with a command `/settings`\ncheers!"
+FEEDBACK_CHANNEL_ID = os.environ['FEEDBACK_CHANNEL_ID'] # ID канала с обратной связью.
+PREFIX = '!'
+
+service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+service_account_dict = json.loads(service_account_json)
+cred = credentials.Certificate(service_account_dict)
+firebase_admin.initialize_app(cred, {
+      'databaseURL': f'{os.getenv("LINK_DATABASE")}'
+  })
+
+nights_ref = db.reference('nights')
+economy_ref = db.reference('economy')
+inventory_ref = db.reference('inventory')
+penalty_ref = db.reference('penalty')
+servers_ref = db.reference('servers')
+
+if nights_ref.get() is None:
+    server = nights_ref.child("SERVER_ID")
+    server.set({"BIN": "BIN_ID",
+                "USER_ID1": "GAME2",
+                "USER_ID2": "GAME1"})
+elif economy_ref.get() is None:
+    user = economy_ref.child("USER_ID1")
+    user.set({"coins": "0"})
+elif inventory_ref.get() is None:
+    user = economy_ref.child("USER_ID1")
+elif penalty_ref.get() is None:
+    user = penalty_ref.child("USER_ID1")
+    user.set({"penalty": "1"})
+elif servers_ref.get() is None:
+    server = servers_ref.child("SERVER_ID")
+    server.set({'prefix': f'{PREFIX}',
+                'TIMEOUT_CHANNEL_ID': 'None',
+                'TIMEOUT_ROLE_ID': 'None',
+                'BOT_CHANNEL_ID': 'None'})
+else:
+    pass
 
 """
 Инициализация бота
@@ -32,28 +77,16 @@ load_dotenv(dotenv_path='/root/DimaBot/.env')
 
 intents = discord.Intents.all()
 intents.message_content = True
-client = commands.Bot(command_prefix='!', intents=intents, help_command=None)
 
-"""
-Env Variables и прочие вещи (базы данных)
-"""
+async def get_prefix(bot, message):
+    if not message.guild:
+        return commands.when_mentioned_or("!")(bot, message)
+    prefix = str(servers_ref.child(str(message.guild.id)).child("PREFIX").get())
+    if prefix is None or prefix == '':
+        return commands.when_mentioned_or("!")(bot, message)
+    return commands.when_mentioned_or(prefix)(bot, message)
 
-CURRENT_SERVER = os.getenv("SERVER") # ID сервера, на котором запущен бот.
-SERVER_GAME_NIGHTS = {"SERVER": "ID"} # Список серверов, на которых запущены геймнайты.
-TIMEOUT_CHANNEL = os.getenv("TIMEOUT_CHANNEL") # ID канала для отправки в таймаут.
-TIMEOUT_ROLE = os.getenv("TIMEOUT_ROLE") # ID роли, которая выдаётся при таймауте.
-BOT_CHANNEL_ID = os.getenv("BOT_CHANNEL") # ID технического канала, куда будут присылаться некоторые сообщения от бота (если это необходимо)
-FEEDBACK_CHANNEL_ID = os.environ['FEEDBACK_CHANNEL_ID']
-service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
-service_account_dict = json.loads(service_account_json)
-cred = credentials.Certificate(service_account_dict)
-firebase_admin.initialize_app(cred, {
-      'databaseURL': f'{os.getenv("LINK_DATABASE")}'
-  })
-games_ref = db.reference('games')
-economy_ref = db.reference('economy')
-inventory_ref = db.reference('inventory')
-penalty_ref = db.reference('penalty')
+client = commands.Bot(command_prefix=get_prefix, intents=intents, help_command=None)
 
 """
 События и Задания
@@ -77,20 +110,44 @@ async def on_ready():
 
     presence_loop.start()
 
+@client.event
+async def on_guild_join(guild: Guild):
+    servers_data = servers_ref.get()
+    if not (str(guild.id) in servers_data):
+        server = servers_ref.child(str(guild.id))
+        server.set({'PREFIX': f'{PREFIX}', # Префикс бота.
+                    'TIMEOUT_CHANNEL': 'None', # ID канала для отправки в таймаут.
+                    'TIMEOUT_ROLE': 'None', # ID роли, которая выдаётся при таймауте.
+                    'BOT_CHANNEL_ID': 'None'}) # ID технического канала, куда будут присылаться некоторые сообщения от бота (если это необходимо)
+        owner = await client.fetch_user(guild.owner.id)
+
+        if owner is not None:
+            if owner.dm_channel is None:
+                await owner.create_dm()
+            await owner.dm_channel.send(WELCOME_MESSAGE_EN)
+    else:
+        pass
+
+@client.event
+async def on_guild_remove(guild):
+    servers_data = servers_ref.get()
+    if str(guild.id) in servers_data:
+        servers_ref.child(str(guild.id)).delete()
+        nights_ref.child(str(guild.id)).delete()
+
 
 @client.event
 async def on_message(message):
-    if message.guild.id == int(CURRENT_SERVER):
-        user_data = economy_ref.child(str(message.author.id)).get()
-        if user_data is None:
-            economy_ref.child(str(message.author.id)).set({
-                'coins': 0
-            })
-        else:
-            current_coins = user_data['coins']
-            economy_ref.child(str(message.author.id)).set({
-                'coins': current_coins + 1
-            })
+    user_data = economy_ref.child(str(message.author.id)).get()
+    if user_data is None:
+        economy_ref.child(str(message.author.id)).set({
+            'coins': 0
+        })
+    else:
+        current_coins = user_data['coins']
+        economy_ref.child(str(message.author.id)).set({
+            'coins': current_coins + 1
+        })
 
     await client.process_commands(message)
 
@@ -102,13 +159,46 @@ async def on_message(message):
 async def test(ctx, *, arg):
     await ctx.send(arg)
 
-dict = {}
+placeholder_dict = {}
 game_list = []
 
 class Menu(discord.ui.View):
     def __init__(self):
         super().__init__()
         self.value = None
+
+class SettingsModal(ui.Modal, title="dimaBot's settings menu"):
+    def __init__(self, guild_id: int):
+        super().__init__()
+        self.server_id = guild_id
+
+        server_dict = servers_ref.child(str(self.server_id)).get()
+
+        self.option_bot_channel_id = ui.TextInput(label='BOT_CHANNEL_ID', placeholder=f"{server_dict.get("BOT_CHANNEL_ID")}", max_length=128, required=False)
+        self.add_item(self.option_bot_channel_id)
+        self.option_timeout_channel_id = ui.TextInput(label='TIMEOUT_CHANNEL_ID', placeholder=f"{server_dict.get("TIMEOUT_CHANNEL_ID")}", max_length=128, required=False)
+        self.add_item(self.option_timeout_channel_id)
+        self.option_timeout_role_id = ui.TextInput(label='TIMEOUT_ROLE_ID', placeholder=f"{server_dict.get("TIMEOUT_ROLE_ID")}", max_length=128, required=False)
+        self.add_item(self.option_timeout_role_id)
+        self.option_prefix = ui.TextInput(label="PREFIX", placeholder=f"{server_dict.get("PREFIX")}", max_length=128, required=False)
+        self.add_item(self.option_prefix)
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        for option, value in {f"{self.option_bot_channel_id.label}": f"{self.option_bot_channel_id.value}",
+                              f"{self.option_timeout_channel_id.label}": f"{self.option_timeout_channel_id.value}",
+                              f"{self.option_timeout_role_id.label}": f"{self.option_timeout_role_id.value}",
+                              f"{self.option_prefix.label}": f"{self.option_prefix.value}"}.items():
+            if value == '':
+                pass
+            else:
+                servers_ref.child(str(interaction.guild.id)).update({f"{option}": f"{value}"})
+        await interaction.followup.send("ладно")
+                
+
+@client.tree.command(name="settings", description="dimaBot's settings menu")
+@commands.has_permissions(administrator=True)
+async def settings(interaction: discord.Interaction):
+    await interaction.response.send_modal(SettingsModal(interaction.guild.id))
 
 
 @client.command()
@@ -137,7 +227,8 @@ async def help(ctx, member: discord.Member = None):
         "!use [:emoji:]": "Использовать предмет в инвентаре"
     }
     commands_admin = {
-        "!клетка [@юзер] [время [s/m/h/d]] (бананы) (причина)": "Отправить человека в то самое место..."
+        "!клетка [@юзер] [время [s/m/h/d]] (бананы) (причина)": "Отправить человека в то самое место...",
+        "/settings": "Команда позволяет настроить бота (нужные айди каналов и ролей)."
     }
 
     commands_other = {
@@ -174,7 +265,19 @@ async def gamenight_list(interaction: discord.Interaction):
     """Команда, которая генерирует и список, и json-file списка."""
 
     """Генерация json-file списка"""
-    all_games = games_ref.get()
+    nights_data = nights_ref.get()
+    all_games = defaultdict(dict)
+    for server_id, server_data in nights_data.items():
+        if str(server_id) != str(interaction.guild.id):
+            continue
+        for user_id, games in server_data.items():
+            if user_id == 'BIN':
+                continue
+            all_games[user_id].update(games)
+
+
+    all_games = dict(all_games)
+
     games_list = []
     if all_games:
         count = 1
@@ -192,7 +295,7 @@ async def gamenight_list(interaction: discord.Interaction):
 
     json_str = json.dumps(games_list, ensure_ascii=False, indent=2)
 
-    bin_name = os.getenv("BIN_NAME") # 15 символов
+    bin_name = nights_ref.child(str(interaction.guild.id)).child("BIN").get() # 15 символов
 
     filename = "gamenight.json"
 
@@ -209,7 +312,6 @@ async def gamenight_list(interaction: discord.Interaction):
 
     """Генерация списка"""
     message = ''
-    all_games = games_ref.get()
     if all_games:
         for user_id, games in all_games.items():
             for game in games.values():
@@ -259,7 +361,18 @@ class GameSubmitSurvey(ui.Modal, title='Предложение игр для Г�
         if self.confirm.value.lower() != "да":
             return
         await interaction.response.defer(ephemeral=True)
-        target_channel = interaction.client.get_channel(int(BOT_CHANNEL_ID))
+
+        server = servers_ref.child(str(interaction.guild.id))
+        server_dict = server.get()
+        try:
+            target_channel = interaction.client.get_channel(int(server_dict.get("BOT_CHANNEL_ID")))
+        except:
+            target_channel = None
+
+        if target_channel is None:
+            message = await interaction.followup.send("какой же всё таки пипец что бот не настроен... админы напишите `/settings` и добавьте BOT_CHANNEL_ID (основной канал где бот будет писать)")
+            return
+
         submitted_games = []
         for _ in [self.game1.value, self.game2.value, self.game3.value]:
             result = ''
@@ -276,24 +389,25 @@ class GameSubmitSurvey(ui.Modal, title='Предложение игр для Г�
         submitted_games = [game for game in submitted_games if game]
 
         for game in submitted_games:
-            user_data = games_ref.child(str(interaction.user.id)).get() or {}
+            nights_server = nights_ref.child(str(interaction.guild.id))
+            user_data = nights_server.child(str(interaction.user.id)).get() or {}
             game_count = len(user_data.keys())
             if user_data is None:
-                games_ref.child(str(interaction.user.id)).set({
+                nights_server.child(str(interaction.user.id)).set({
                     '-L' + str(int(time.time() * 1000)): str(game).replace('\n', '')  # Add the new game with a timestamp
                 })
             else:
                 if game_count >= 3:
                     summarize = [key for key in user_data.keys()]
                     oldest_game = min(summarize)
-                    games_ref.child(str(interaction.user.id)).update({
+                    nights_server.child(str(interaction.user.id)).update({
                         oldest_game: None,
                         '-L' + str(int(time.time() * 1000)): str(game).replace('\n', '')
                     })
 
                 else:
                     # If the user has less than 3 games, add the new game
-                    games_ref.child(str(interaction.user.id)).update({
+                    nights_server.child(str(interaction.user.id)).update({
                         '-L' + str(int(time.time() * 1000)): str(game).replace('\n', '')
                         # Add the new game with a timestamp
                     })
@@ -308,25 +422,32 @@ class GameSubmitSurvey(ui.Modal, title='Предложение игр для Г�
 @client.tree.command(name="gamenight_start", description="Начать Геймнайт и запустить предложку игр")
 @commands.has_permissions(administrator=True)
 async def gamenight_start(interaction: discord.Interaction):
-    if not (SERVER_GAME_NIGHTS.get(str(interaction.guild.id))):
-        SERVER_GAME_NIGHTS[str(interaction.guild.id)] = len(SERVER_GAME_NIGHTS)
+    await interaction.response.defer()
+    nights_data = nights_ref.get()
+    if not (nights_data.get(str(interaction.guild.id))):
+        night_server = nights_ref.child(str(interaction.guild.id))
+        characters = string.ascii_lowercase + string.digits
+        result = ''.join(random.choice(characters) for _ in range(15))
+        night_server.set({"BIN": f"{result}"})
         embed = discord.Embed(description="рулетка инициализирована предлагайте игры", color=Color.green())
         class SubmitButton(discord.ui.View):
             @discord.ui.button(label='предложить игру', style=discord.ButtonStyle.success, emoji="😂")
             async def respond(self, button_interaction: discord.Interaction, button: discord.ui.Button):
-                if SERVER_GAME_NIGHTS.get(str(button_interaction.guild.id)):
+                new_nights_data = nights_ref.get()
+                if new_nights_data.get(str(button_interaction.guild.id)):
                     await button_interaction.response.send_modal(GameSubmitSurvey())
                 else:
-                    await button_interaction.response.send_message("геймнайт уже закончился", ephemeral=True)
-        await interaction.response.send_message(embed=embed, view=SubmitButton(timeout=None))
+                    await button_interaction.response.send_modal("геймнайт уже закончился", ephemeral=True)
+        await interaction.followup.send(embed=embed, view=SubmitButton(timeout=None))
     else:
-        await interaction.response.send_message("ну геймнайт уже начат у твоего сервера", ephemeral=True)
+        await interaction.followup.send("ну геймнайт уже начат у твоего сервера", ephemeral=True)
 
 @client.tree.command(name="gamenight_end", description="Закончить предложку Геймнайта")
 @commands.has_permissions(administrator=True)
 async def gamenight_end(interaction: discord.Interaction):
-    if SERVER_GAME_NIGHTS.get(str(interaction.guild.id)):
-        SERVER_GAME_NIGHTS.pop(str(interaction.guild.id))
+    nights_data = nights_ref.get()
+    if nights_data.get(str(interaction.guild.id)):
+        nights_ref.child(str(interaction.guild.id)).delete()
         embed = discord.Embed(description="предложка всё! больше нельзя предлагать игры", color=Color.red())
     else:
         embed = discord.Embed(description="ау геймнайта ещё нету")
@@ -334,7 +455,8 @@ async def gamenight_end(interaction: discord.Interaction):
 
 @client.tree.command(name="gamenight_gamedelete", description="Удалить СВОЮ игру из Геймнайта")
 async def gamenight_gamedelete(interaction: discord.Interaction, suggestion: str):
-    user_data = games_ref.child(str(interaction.user.id)).get()
+    await interaction.response.defer()
+    user_data = nights_ref.child(str(interaction.guild.id)).child(str(interaction.user.id)).get()
     result = ''
     if user_data is not None:
         t_list = deepcopy(user_data)
@@ -349,60 +471,18 @@ async def gamenight_gamedelete(interaction: discord.Interaction, suggestion: str
         matching_keys = [key for key, v in t_list.items() if v == result]
         if matching_keys:
             t_list.pop(matching_keys[0])
-            game_path = f"{str(interaction.user.id)}/{matching_keys[0]}"
-            games_ref.child(game_path).delete()
-            await interaction.response.send_message(f'Успешно удалён элемент {suggestion}.')
+            game_path = f"{str(interaction.guild.id)}/{str(interaction.user.id)}/{matching_keys[0]}"
+            nights_ref.child(game_path).delete()
+            await interaction.followup.send(f'Успешно удалён элемент {suggestion}.')
         else:
-            await interaction.response.send_message(f'Элемент не найден в вашем списке...')
+            await interaction.followup.send(f'Элемент не найден в вашем списке...')
     else:
-        await interaction.response.send_message(f'User не найден в списке...')
+        await interaction.followup.send(f'User не найден в списке...')
 
 @gamenight_gamedelete.error
 async def game_delete_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         await ctx.send(error)
-
-@client.command()
-@commands.is_owner()
-async def clear(ctx):
-    games_ref.delete()
-    await ctx.send('Лист очищен.')
-
-@client.command()
-async def gamenight_json(ctx):
-    all_games = games_ref.get()
-    games_list = []
-    if all_games:
-        count = 1
-        for user_id, games in all_games.items():
-            for game in games.values():
-
-                data_object = {
-                    "fastid": f"{count}",
-                    "id": str(random.random()),
-                    "amount": 1,
-                    "name": game,
-                    "investors": []
-                }
-                games_list.append(data_object)
-                count+=1
-
-    json_file = StringIO()
-    json.dump(games_list, json_file, ensure_ascii=False, indent=2)
-    json_file.seek(0)
-
-    discord_file = discord.File(
-        filename="gamelist.json",
-        fp=json_file
-    )
-
-    await ctx.send(file=discord_file)
-
-@clear.error
-async def clear_error(ctx, error):
-    if isinstance(error, commands.CheckFailure):
-        await ctx.send('поносно не можешь использовать')
-
 
 @client.hybrid_command()
 async def feedback(ctx, *, text):
@@ -1355,7 +1435,6 @@ ITEMS = [
 
 ]
 
-role_to_give = "озезяна"
 
 def parse_time(time_str: str) -> int:
     time_units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
@@ -1372,9 +1451,17 @@ def parse_time(time_str: str) -> int:
 @app_commands.describe(member="юзер", time="время (s/m/h/d)")
 @commands.has_permissions(administrator = True)
 async def клетка(ctx: commands.Context, member: discord.Member, time: str, bananas: str = None, *, reason: str = None):
-    role = discord.utils.get(ctx.guild.roles, name=role_to_give)
-    players = discord.utils.get(ctx.guild.roles, name="Игроки")
-    unplayers = discord.utils.get(ctx.guild.roles, name="Не игроки")
+    try:
+        role_id = servers_ref.child(str(ctx.guild.id)).get().get("TIMEOUT_ROLE_ID")
+        role = ctx.guild.get_role(int(role_id))
+    except:
+        role = None
+
+    if role is None:
+        message = await ctx.send(
+            "какой же всё таки пипец что бот не настроен... админы напишите `/settings` и добавьте TIMEOUT_ROLE_ID (роль, которая даётся пользователям для таймаута)")
+        return
+
     saved_roles = member.roles
     if reason is not None:
         if len(reason) > 1024:
@@ -1384,12 +1471,15 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
 
 
     try:
-        new_bananas = int(bananas)
-        if new_bananas <= 0 or new_bananas > 99999:
-            raise ValueError("емае ну и хрень они пишут")
+        if not (bananas is None):
+            new_bananas = int(bananas)
+            if new_bananas <= 0 or new_bananas > 99999:
+                raise ValueError("емае ну и хрень они пишут")
+        else:
+            pass
 
     except ValueError as e:
-        await ctx.reply("что за бред с бананами")
+        await ctx.reply(f"что за бред с бананами: {e}")
         return
     if role in member.roles:
         await ctx.reply(f"{member.mention} уже там", ephemeral=True)
@@ -1402,11 +1492,23 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
         await ctx.reply("какашечно вводишь время")
         return
 
+    server_dict = servers_ref.child(str(ctx.guild.id)).get()
+    try:
+        channel = client.get_channel(int(server_dict.get("TIMEOUT_CHANNEL_ID")))
+    except:
+        channel = None
+
+    if not channel:
+        message = await ctx.send(
+            "какой же всё таки пипец что бот не настроен... админы напишите `/settings` и добавьте TIMEOUT_CHANNEL_ID (канал для таймаутов)")
+        return
+
     try:
         await member.add_roles(role)
         try:
-            await member.remove_roles(players)
-            await member.remove_roles(unplayers)
+            # await member.remove_roles(players)
+            # await member.remove_roles(unplayers)
+            pass
         except:
             pass
 
@@ -1429,11 +1531,10 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
             else:
                 penalty_ref.child(str(member.id)).update({'penalty': int(bananas)})
 
-        channel = client.get_channel(int(TIMEOUT_CHANNEL))
         if channel:
             embed = discord.Embed(
-                title = f"добро пожаловать в говнецо, {member}",
-                description = f"вы очевидно в чём-то провинились.",
+                title = f"добро пожаловать в этот канал, {member}",
+                description = f"вы очевидно в чём-то провинились раз здесь оказались.",
                 color = discord.Color.blurple()
             )
             now = datetime.now()
@@ -1451,14 +1552,14 @@ async def клетка(ctx: commands.Context, member: discord.Member, time: str,
             if bananas:
                 embed.add_field(name=f"Чтобы выбраться отсюда, вам необходимо:", value=f"почистить {number_of_things} {name}, используя !почистить {thing}", inline=False)
             await channel.send(embed=embed)
+        else:
+            message = await ctx.send(
+                "кто удалил канал")
+            return
 
         await asyncio.sleep(time_in_seconds)
         if role in member.roles:
             await member.remove_roles(role)
-            if players in saved_roles:
-                await member.add_roles(players)
-            else:
-                await member.add_roles(unplayers)
             await ctx.send(f"ёмаё, {member.mention} выпустили из обезяника")
             penalty_ref.child(str(member.id)).delete()
 
@@ -1655,8 +1756,17 @@ async def leaderboard(ctx):
 
 @client.command()
 @commands.cooldown(1, 5, commands.BucketType.user)
-@commands.has_any_role(int(TIMEOUT_ROLE))
 async def почистить(ctx, emoji):
+    try:
+        timeout_role_id = servers_ref.child(str(ctx.guild.id)).get().get("TIMEOUT_ROLE_ID")
+    except:
+        await ctx.send("увы даже такой роли нету... пусть админ напишет `/settings` и настроит TIMEOUT_ROLE_ID")
+        return
+
+    if not timeout_role_id or not any(role.id == int(timeout_role_id) for role in ctx.author.roles):
+        await ctx.send("ты норм, иди отдыхай")
+        return
+
     inventory_data = economy_ref.get()
     cool_list = []
     for id, inventory in inventory_data.items():
@@ -1689,10 +1799,14 @@ async def почистить(ctx, emoji):
                     if new_penalty == 0:
                         guild = ctx.guild
                         member = guild.get_member(int(ctx.author.id))
+                        try:
+                            target_role = ctx.guild.get_role(int(timeout_role_id))
+                        except:
+                            target_role = None
+
                         if member:
-                            role = discord.utils.get(guild.roles, name="озезяна")
-                            if role in member.roles:
-                                await member.remove_roles(role)
+                            if target_role in member.roles:
+                                await member.remove_roles(target_role)
                                 penalty_ref.child(str(ctx.author.id)).delete()
                                 await ctx.send(f"ёмаё, {member.mention} выпустили из обезяника")
     else:
