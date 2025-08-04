@@ -62,7 +62,7 @@ elif penalty_ref.get() is None:
     user.set({"penalty": "1"})
 elif servers_ref.get() is None:
     server = servers_ref.child("SERVER_ID")
-    server.set({'prefix': f'{PREFIX}',
+    server.set({'PREFIX': f'{PREFIX}',
                 'TIMEOUT_CHANNEL_ID': 'None',
                 'TIMEOUT_ROLE_ID': 'None',
                 'BOT_CHANNEL_ID': 'None'})
