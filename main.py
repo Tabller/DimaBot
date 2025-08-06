@@ -196,7 +196,7 @@ class SettingsModal(ui.Modal, title="dimaBot's settings menu"):
                 
 
 @client.tree.command(name="settings", description="dimaBot's settings menu")
-@commands.has_permissions(administrator=True)
+@app_commands.checks.has_permissions(administrator=True)
 async def settings(interaction: discord.Interaction):
     await interaction.response.send_modal(SettingsModal(interaction.guild.id))
 
@@ -505,7 +505,7 @@ class GameSubmitSurvey(ui.Modal, title='Предложение игр для Г�
         await message.add_reaction('tomatjret:1098375901248487424')
 
 @client.tree.command(name="gamenight_start", description="Начать Геймнайт и запустить предложку игр")
-@commands.has_permissions(administrator=True)
+@app_commands.checks.has_permissions(administrator=True)
 async def gamenight_start(interaction: discord.Interaction):
     await interaction.response.defer()
     nights_data = nights_ref.get()
@@ -528,7 +528,7 @@ async def gamenight_start(interaction: discord.Interaction):
         await interaction.followup.send("ну геймнайт уже начат у твоего сервера", ephemeral=True)
 
 @client.tree.command(name="gamenight_end", description="Закончить предложку Геймнайта")
-@commands.has_permissions(administrator=True)
+@app_commands.checks.has_permissions(administrator=True)
 async def gamenight_end(interaction: discord.Interaction):
     nights_data = nights_ref.get()
     if nights_data.get(str(interaction.guild.id)):
