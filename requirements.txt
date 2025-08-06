@@ -1,3 +1,4 @@
+# Requires Python 3.12+
 discord.py
 firebase-admin
 google-cloud-firestore
