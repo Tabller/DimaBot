@@ -805,13 +805,18 @@ async def craft(ctx, *, emoji):
         frozenset(['🪚', '🚪', '🚪']): items.get('⛵')
 
     }
-    ingredients = set(emoji.replace(" ", ""))
+
+    ingredients = {
+        emoji.strip()
+        for emoji in emoji.split()
+        if emoji.strip() and emoji.strip() != "️"
+    }
+
     found_recipe = None
     for key in crafting_dict:
         if ingredients == key:
             found_recipe = crafting_dict.get(key)
             break
-
     inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
     if inventory_data:
