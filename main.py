@@ -267,7 +267,8 @@ async def help(ctx, command: str = None, member: discord.Member = None):
                             'LANG_EN': 'placeholder'},
         "pin": {'LANG_RU': ["```Команда позволяет пригвоздить предмет, чтобы его невозможно было продать, или наоборот, отгвоздить его, чтобы его можно было продать.```",
                             {"[:emoji:]": "Эмодзи, например 🍌"},
-                            {"!pin 🍌": "Команда пригвоздит/отгвоздит предмет, чтобы его было нельзя/можно продать."},
+                            {"!pin 🍌": "Команда пригвоздит предмет, чтобы его было нельзя продать. Если у вас много предметов, можно указать `индекс`, например 1 или 2, или же слово `всё`, чтобы пригвоздить все предметы",
+                             "!pin 📌🐟": "Команда отгвоздит предмет, чтобы его можно было продать. Если у вас много предметов, можно указать `индекс`, например 1 или 2, или же слово `всё`, чтобы отгвоздить все предметы"},
                             None],
                             'LANG_EN': 'placeholder'},
         "info": {'LANG_RU': ["```Команда позволяет узнать некоторую информацию о предмете, находящегося в вашем инвентаре. Показывает название предмета, дату получения и краткую информацию.```",
@@ -722,12 +723,12 @@ items = {
             '🎣': [2, "монет", "удочка TIER 2","Теперь вы сможете рыбачить не руками с леской и крючком, а с удочкой и леской с крючком!", "func", '🎣', "1575"],
             '♟️': [6, "монет", "пешка", f"Checkmate in {str(random.randint(2, 600))} moves", "func", '♟️', "2009"],
             '🏵️': [1.5, "монет","цветок муосотис", "Прекрасный подарок на любое событие в жизни человека.", "func", '🏵️', "367"],
-            '🚘': [8.45, "монет", "собственная тачка","Check out my new гелик!", "func", '🚘', "16650"],
+            '🚘': [3.45, "монет", "собственная тачка","Check out my new гелик!", "func", '🚘', "16650"],
             '🔩': [0.23, "монет", "металлолом декеинг","Очень распространённый материал чтобы использовать его для создания разных штук...", "func", '🔩', "250"],
             '📟': [2.3, "монет", "пейджер","Прямиком из 1980-го года (ну это у нас).", "func", '📟', "487"],
             '🖲️': [2.1, "монет", "красная кнопка", "У-у-у, прямо таки хочется нажать!", "func", '🖲️', "129"],
             '💰': [1, "монет", "мешок с деньгами", "Я посчитал и на это надо гриндить целых 167 часов! Ну, ладно, это если бы шансы рыбы были такими же, но теперь они изменились!", "func", '💰', "5000000"],
-            '🧬': [45.3, "монет", "ДНК", "Каким образом это вообще продаётся? Похоже, мы живём в будущем! Я сам определяю свой геном...", "func", '🧬', "999"],
+            '🧬': [5.3, "монет", "ДНК", "Каким образом это вообще продаётся? Похоже, мы живём в будущем! Я сам определяю свой геном...", "func", '🧬', "999"],
             '🪚': [1.6, "монет", "пилище", "Я бы с такой не играл.", "func", '🪚', "339"],
             '🚪': [1.28, "монет", "дверь", "Дверь мне запили!", "func", '🚪', "199"],
             '🍣': [1.28, "монет", "сашими", "DIY, прямиком из-под ножа!", "func", '🍣', "155"],
@@ -882,6 +883,8 @@ async def balance(ctx, member: discord.Member = None):
     else:
         inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
+    if inventory_data is None:
+        inventory_data = {}
 
 
     def balance_sort(page: int, per_page: int = 10):
@@ -901,10 +904,10 @@ async def balance(ctx, member: discord.Member = None):
         end = start + per_page
         dictlist = []
 
-        if not (inventory_data is None):
-            for key, value in inventory_data.items():
-                temp = (key, value)
-                dictlist.append(temp)
+
+        for key, value in inventory_data.items():
+            temp = (key, value)
+            dictlist.append(temp)
 
 
         balance_page = dictlist[start:end]
@@ -915,9 +918,15 @@ async def balance(ctx, member: discord.Member = None):
             if new_string.replace('📌', '') in items:
                 multiplier, word, name, way_to_sell, func, icon, price = items.get(new_string.replace('📌', '').strip())
                 embed.add_field(name=str(new_string), value=f'{quantity} {word}')
-        embed.set_footer(
-            text=f"страница {page}/{(len(inventory_data.items()) + per_page - 1) // per_page}"
-        )
+
+        if not (inventory_data == {}):
+            embed.set_footer(
+                text=f"страница {page}/{(len(inventory_data.items()) + per_page - 1) // per_page}"
+            )
+        else:
+            embed.set_footer(
+                text=f"страница {page}/1"
+            )
         return embed
 
     current_page = 1
@@ -968,7 +977,7 @@ async def sell(ctx, item: str):
     what_to_sell = {}
     for item_name, quantity in dictionary.items():
         if item in item_name or item == "inventory":
-            if not('📌' in item_name):
+            if not('📌' in item_name) or not('effects' in item_name):
                 what_to_sell[item_name] = quantity
     print(what_to_sell)
     pattern = r'[0-9]'
@@ -1112,7 +1121,17 @@ async def pin(ctx, *, item: str):
 
     dictionary = {}
     for item_name, quantity in inventory_data.items():
-        dictionary[item_name] = quantity
+        if '📌' in new_item:
+            if not ('📌' in item_name):
+                continue
+            else:
+                dictionary[item_name] = quantity
+        else:
+            if '📌' in item_name:
+                continue
+            else:
+                dictionary[item_name] = quantity
+
 
 
     what_to_pin = {}
@@ -1120,8 +1139,8 @@ async def pin(ctx, *, item: str):
         if new_item in item_name or item == "inventory":
             what_to_pin[item_name] = quantity
 
-    new_string = re.sub(pattern, '', new_item)
 
+    new_string = re.sub(pattern, '', new_item)
     multiplier, word, name, way_to_sell, func, icon, price = items.get(new_string.replace('📌', ''))
     if len(what_to_pin) >= 1:
 
@@ -1132,7 +1151,7 @@ async def pin(ctx, *, item: str):
                 items_to_pin.append((index, name, value))
 
             await ctx.send(
-                f"выбери, какой из нескольких '{item}' пригвоздить (укажи индекс):\n" +
+                f"выбери, какой из нескольких '{item}' пригвоздить/отгвоздить (укажи индекс):\n" +
                 "\n".join([f"{index+1}. {new_string}: {value} {word}" for index, name, value in items_to_pin])
             )
 
@@ -1142,25 +1161,22 @@ async def pin(ctx, *, item: str):
                 return m.author == ctx.author and m.content.isdigit()  and 0 <= int(m.content) - 1 < len(items_to_pin) or m.content == "всё"
 
         try:
-            if len(what_to_pin) > 1 and item != "inventory":
+            if len(what_to_pin) > 1 and item != "inventory" and item != "всё":
                 response = await client.wait_for('message', check=check, timeout=30)
-
-                selected_item = response.content
-                if response.content != "всё":
-                    await ctx.send(f"окей, ща пригвоздим {item}: {value} {word}")
+                if response.content != 'inventory' and response.content != 'всё':
+                    index, name, value = items_to_pin[int(response.content) - 1]
+                    await ctx.send(f"окей, ща я подумаю чё делать с... {index+1}. {item}: {value} {word}")
+                    selected_item = int(response.content) - 1
+                else:
+                    selected_item = "всё"
             else:
                 selected_item = "всё"
 
-            test_var = None
             funny_copy_what_to_pin = copy.deepcopy(what_to_pin)
-            try:
-                selected_item = str(int(selected_item)-1)
-            except Exception as e:
-                pass
 
 
             for index, (name, value) in enumerate(what_to_pin.items()):
-                if selected_item == str(index) or selected_item == "всё":
+                if selected_item == int(index) or selected_item == "всё":
                     try:
                         pinorunpin = '📌' in name
 
@@ -1189,7 +1205,7 @@ async def pin(ctx, *, item: str):
                         await ctx.send(f"запор чето не получилось, ошибка {e}")
 
                 else:
-                    print("говно переделывай")
+                    pass
 
         except asyncio.TimeoutError:
             await ctx.send("ты чет призадумался, попробуй лучше снова")
