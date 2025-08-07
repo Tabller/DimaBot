@@ -900,9 +900,11 @@ async def balance(ctx, member: discord.Member = None):
         start = (page - 1) * per_page
         end = start + per_page
         dictlist = []
-        for key, value in inventory_data.items():
-            temp = (key, value)
-            dictlist.append(temp)
+
+        if not (inventory_data is None):
+            for key, value in inventory_data.items():
+                temp = (key, value)
+                dictlist.append(temp)
 
 
         balance_page = dictlist[start:end]
