@@ -135,22 +135,6 @@ async def on_guild_remove(guild):
         servers_ref.child(str(guild.id)).delete()
         nights_ref.child(str(guild.id)).delete()
 
-
-@client.event
-async def on_message(message):
-    user_data = economy_ref.child(str(message.author.id)).get()
-    if user_data is None:
-        economy_ref.child(str(message.author.id)).set({
-            'coins': 0
-        })
-    else:
-        current_coins = user_data['coins']
-        economy_ref.child(str(message.author.id)).set({
-            'coins': current_coins + 1
-        })
-
-    await client.process_commands(message)
-
 """
 Команды бота
 """
