@@ -125,7 +125,7 @@ class MiniGamesCog(commands.Cog):
                 self.author = author
                 self.future = asyncio.Future()
 
-            @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='0️⃣')
+            @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji=f'{game_emojis.get('player')}')
             async def zero(self, interaction: discord.Interaction, button: discord.Button):
                 if interaction.user.id != self.author.id:
                     await interaction.response.send_message("не по понятиям в чужие игры лезть", ephemeral=True)
@@ -134,7 +134,7 @@ class MiniGamesCog(commands.Cog):
                 self.future.set_result(0)
                 self.stop()
 
-            @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji='1️⃣')
+            @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji=f'{game_emojis.get('biker2')}')
             async def one(self, interaction: discord.Interaction, button: discord.Button):
                 if interaction.user.id != self.author.id:
                     await interaction.response.send_message("не по понятиям в чужие игры лезть", ephemeral=True)
@@ -230,7 +230,7 @@ class MiniGamesCog(commands.Cog):
 
             if GameEntity.turn:
                 view = GameView(ctx.author, timeout=15)
-                GameEntity.g_embed.description = f"{now(GameEntity.turn)}\nВыберите 0 - байкера; 1 - себя"
+                GameEntity.g_embed.description = f"{now(GameEntity.turn)}\nВыберите себя или байкера"
                 await  message.edit(embed=GameEntity.g_embed, view=view)
 
                 try:

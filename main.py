@@ -213,7 +213,7 @@ async def shop(ctx):
             else:
                 if current_emoji in fish_book.keys():
                     inventory_ref.child(str(self.author.id)).update(
-                        {f'{current_emoji}' + str(int(time.time() * 1000)): (int(price) - int(random.randint(19, 30)))})
+                        {f'{current_emoji}' + str(int(time.time() * 1000)): (int(price) - int(random.randint(5, 15)))})
                     current_coins = economy_data['coins']
                     economy_ref.child(str(self.author.id)).set({
                         'coins': current_coins - int(price)
