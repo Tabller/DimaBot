@@ -187,23 +187,6 @@ class MiniGamesCog(commands.Cog):
                 detect = lambda: GameEntity.player.nickname if GameEntity.player.hp == 0 else GameEntity.dealer.nickname
                 GameEntity.g_embed.description = f"увы, сегодня проиграл {detect()}"
                 await message.edit(embed=GameEntity.g_embed)
-                if GameEntity.player.hp == 0:
-                    user_data = economy_ref.child(str(ctx.author.id)).get()
-
-                    if "player" in user_data:
-                        pass
-                    else:
-                        economy_ref.child(str(ctx.author.id)).child("player").set("😃👔🖐👖")
-                        user_data = economy_ref.child(str(ctx.author.id)).get()
-
-                    if "health" in user_data:
-                        pass
-                    else:
-                        economy_ref.child(str(ctx.author.id)).child("health").set("5")
-                        user_data = (economy_ref.child(str(ctx.author.id)).get())
-
-                    economy_ref.child(str(ctx.author.id)).child("health").set(int(user_data["health"]) - 1)
-
                 active_games.pop(user_id, None)
                 break
 
