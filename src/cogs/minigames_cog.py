@@ -7,17 +7,25 @@ import random
 from src.config import active_games, economy_ref
 
 game_emojis = {
-    "player": "<:player:1418268662506197012>",
-    "biker2": "<:biker2:1418268825538793492>",
-    "blank_buck8": "<:blank_buck8:1418268907533369394>",
-    "real_buck8": "<:real_buck8:1418268960368889876>",
-    "chargeg": "<:chargeg:1418269033836318922>",
-    "nocharge": "<:nocharge:1418269272307667014>",
-    "hpbracket": "<:hpbracket:1418269272798531604>",
-    "bracket": "<:bracket:1418269273717215434>",
-    "buckbracket": "<:buckbracket:1418274527913185290>",
-    "empty": "<:empty:1418274528810893372>",
-    "buckbracket2": "<:buckbracket2:1418274529523798117>"
+    "player": "<:player:1418784679665995907>",
+    "biker2": "<:biker2:1418785737209417779>",
+    "blank_buck8": "<:blank_buck8:1418785806646251520>",
+    "real_buck8": "<:real_buck8:1418785900019847340>",
+    "chargeg": "<:chargeg:1418785990884986961>",
+    "nocharge": "<:nocharge:1418786156048416949>",
+    "hpbracket": "<:hpbracket:1418786228966523011>",
+    "bracket": "<:bracket:1418786277372989521>",
+    "buckbracket": "<:buckbracket:1418786424551116870>",
+    "empty": "<:empty:1418786425054302308>",
+    "buckbracket2": "<:buckbracket2:1418786442695413780>",
+    "shoot": "<:shoot:1418933098439118919>",
+    "inv": "<:inv:1418932733366767626>",
+    "mmm": "<:mmm:1418933151182491689>",
+    "air": "<:air:1418933217817264149>",
+    "items1": "<:items1:1418933358490288239>",
+    "items2": "<:items2:1418933513511768186>",
+    "items3": "<:items3:1418933560772923412>",
+    "items4": "<:items4:1418933602984529991>"
 }
 
 class BikeGame:
@@ -26,9 +34,11 @@ class BikeGame:
         self.player = Entity(nickname)
         self.dealer = Biker(self.quantity_of_bullets)
         self.turn = 1
+        self.animation = None
         self.shotgun = Shotgun()
-        self.g_embed = discord.Embed(colour=discord.Colour(int('F54927', 16)))
+        self.g_embed = discord.Embed(colour=discord.Colour(int('768053', 16)))
         self.insert_shells = lambda: self.shotgun.insert([Ammo("live") for _ in range(self.quantity_of_bullets // 2)] + [Ammo("blank") for _ in range(self.quantity_of_bullets - (self.quantity_of_bullets // 2))])
+        self.shuffle_clip = lambda: random.shuffle(self.shotgun.clip)
         # self.insert_shells = lambda: self.shotgun.insert([random.choice([Ammo("live"), Ammo('blank')]) for _ in range(self.quantity_of_bullets)])
 
 
@@ -41,10 +51,15 @@ class Ammo:
     def __init__(self, b_type: str):
         self.type = b_type
 
+class ItemCell:
+    def __init__(self, item_type):
+        self.item_type = item_type
+
 class Entity:
     def __init__(self, nickname: str):
         self.nickname = nickname
-        self.hp = 3
+        self.inventory = [ItemCell(game_emojis.get("air")) for _ in range(8)]
+        self.hp = 5
         self.bullets = {
             Ammo("live").type: [1, "ЖИВАЯ"],
             Ammo("blank").type: [0, "ХОЛОСТАЯ (Не замужем)"]
@@ -88,9 +103,26 @@ class Entity:
                 game.turn = not game.turn
             else:
                 pass
+
         if animation is not None:
-            game.g_embed.set_image(url=animation)
-        return f"\n{self.nickname} короче стреляет в... {user(who).nickname}, но пулька оказалась... {sentence}\n## {game_emojis.get("player")} {game.player.nickname}\n# {game_emojis.get("chargeg") * game.player.hp}\n\n## {game_emojis.get("biker2")} {game.dealer.nickname}\n# {game_emojis.get("chargeg") * game.dealer.hp}"
+            # game.g_embed = discord.Embed(colour=discord.Colour(int('768053', 16)),
+            #                        title=f'Байкшотинг {game.player.nickname}')
+            # game.g_embed.set_image(url=animation)
+            game.animation = animation
+
+        game.g_embed.remove_field(0)
+        game.g_embed.remove_field(1)
+
+        return (f"\n{self.nickname} короче стреляет в... {user(who).nickname}, но пулька оказалась... {sentence}"
+                f"\n## {game_emojis.get("biker2")} {game.dealer.nickname}"
+                f"\n### {game_emojis.get("hpbracket")}{game_emojis.get("chargeg") * game.dealer.hp}{game_emojis.get("nocharge") * (5 - game.dealer.hp)}{game_emojis.get("bracket")}\n"
+                f"{game_emojis.get("mmm")}{game_emojis.get("items1")}{''.join([itemcell.item_type for itemcell in game.dealer.inventory[0:4]])}{game_emojis.get("items2")}\n"
+                f"{game_emojis.get("mmm")}{game_emojis.get("items3")}{''.join([itemcell.item_type for itemcell in game.dealer.inventory[4:8]])}{game_emojis.get("items4")}\n"
+                f"\n## {game_emojis.get("player")} {game.player.nickname}"
+                f"\n### {game_emojis.get("hpbracket")}{game_emojis.get("chargeg") * game.player.hp}{game_emojis.get("nocharge") * (5 - game.player.hp)}{game_emojis.get("bracket")}\n"
+                f"{game_emojis.get("mmm")}{game_emojis.get("items1")}{''.join([itemcell.item_type for itemcell in game.player.inventory[0:4]])}{game_emojis.get("items2")}\n"
+                f"{game_emojis.get("mmm")}{game_emojis.get("items3")}{''.join([itemcell.item_type for itemcell in game.player.inventory[4:8]])}{game_emojis.get("items4")}\n"
+                )
 
 class Biker(Entity):
     def __init__(self, quantity):
@@ -120,13 +152,13 @@ class MiniGamesCog(commands.Cog):
         active_games[user_id] = True
 
         class GameView(discord.ui.View):
-            def __init__(self, author, timeout=15):
+            def __init__(self, author, timeout=60):
                 super().__init__(timeout=timeout)
                 self.author = author
                 self.future = asyncio.Future()
+                self.setup_initial_buttons()
 
-            @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji=f'{game_emojis.get('player')}')
-            async def zero(self, interaction: discord.Interaction, button: discord.Button):
+            async def zero_callback(self, interaction: discord.Interaction):
                 if interaction.user.id != self.author.id:
                     await interaction.response.send_message("не по понятиям в чужие игры лезть", ephemeral=True)
                     return
@@ -134,8 +166,7 @@ class MiniGamesCog(commands.Cog):
                 self.future.set_result(0)
                 self.stop()
 
-            @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji=f'{game_emojis.get('biker2')}')
-            async def one(self, interaction: discord.Interaction, button: discord.Button):
+            async def one_callback(self, interaction: discord.Interaction):
                 if interaction.user.id != self.author.id:
                     await interaction.response.send_message("не по понятиям в чужие игры лезть", ephemeral=True)
                     return
@@ -143,13 +174,82 @@ class MiniGamesCog(commands.Cog):
                 self.future.set_result(1)
                 self.stop()
 
+
+            async def inventory_callback(self, interaction: discord.Interaction):
+                if interaction.user.id != self.author.id:
+                    await interaction.response.send_message("не по понятиям в чужие игры лезть", ephemeral=True)
+                    return
+                await interaction.response.send_message("к сожалению, инвентарь пока что не реализован", ephemeral=True)
+
+            async def shoot_callback(self, interaction: discord.Interaction):
+                if interaction.user.id != self.author.id:
+                    await interaction.response.send_message("не по понятиям в чужие игры лезть", ephemeral=True)
+                    return
+                self.setup_choice_buttons()
+
+                GameEntity.g_embed = discord.Embed(colour=discord.Colour(int('768053', 16)),
+                                   title=f'Байкшотинг {ctx.author.display_name}', description="Выберите байкера или себя")
+                await  message.edit(embed=GameEntity.g_embed, view=view)
+                await interaction.response.edit_message(view=self)
+
+            def setup_initial_buttons(self):
+                self.clear_items()
+
+                inventory_btn = discord.ui.Button(
+                    label='',
+                    style=discord.ButtonStyle.grey,
+                    emoji=game_emojis.get('inv'),
+                    custom_id='inventory'
+                )
+                inventory_btn.callback = self.inventory_callback
+                self.add_item(inventory_btn)
+
+                shoot_btn = discord.ui.Button(
+                    label='',
+                    style=discord.ButtonStyle.grey,
+                    emoji=game_emojis.get('shoot'),
+                    custom_id='shoot'
+                )
+                shoot_btn.callback = self.shoot_callback
+                self.add_item(shoot_btn)
+
+            def setup_choice_buttons(self):
+                self.clear_items()
+
+                zero_btn = discord.ui.Button(
+                    label='',
+                    style=discord.ButtonStyle.success,
+                    emoji=game_emojis.get('biker2'),
+                    custom_id='zero'
+                )
+                zero_btn.callback = self.zero_callback
+                self.add_item(zero_btn)
+
+                one_btn = discord.ui.Button(
+                    label='',
+                    style=discord.ButtonStyle.success,
+                    emoji=game_emojis.get('player'),
+                    custom_id='one'
+                )
+                one_btn.callback = self.one_callback
+                self.add_item(one_btn)
+
             async def interaction_check(self, interaction: discord.Interaction) -> bool:
-                return interaction.user.id == self.author.id
+                if interaction.user.id == self.author.id:
+                    return True
+
+            async def on_timeout(self) -> None:
+                GameEntity.g_embed = discord.Embed(colour=discord.Colour(int('768053', 16)),
+                                   title=f'Байкшотинг {ctx.author.display_name}', description=f"ёмаё ну ты чёто долго думаеш, байкер ушёл")
+                await message.edit(embed=GameEntity.g_embed, view=None)
+                active_games.pop(user_id, None)
+                return
+
 
         GameEntity = BikeGame(ctx.author.display_name)
         GameEntity.insert_shells()
-
-        GameEntity.g_embed = discord.Embed(colour=discord.Colour(int('F54927', 16)),
+        GameEntity.shuffle_clip()
+        GameEntity.g_embed = discord.Embed(colour=discord.Colour(int('768053', 16)),
                                    title=f'Байкшотинг {ctx.author.display_name}')
 
         message = await ctx.send(embed=GameEntity.g_embed)
@@ -168,7 +268,7 @@ class MiniGamesCog(commands.Cog):
                 element = a.pop(index)
                 b[i] = element
                 g = "".join(b)
-                GameEntity.g_embed.description = f"короче сегодня вот \n## {game_emojis.get("buckbracket")} {g} {game_emojis.get("buckbracket2")}"
+                GameEntity.g_embed.description = f"короче сегодня вот такой расклад \n## {game_emojis.get("buckbracket")} {g} {game_emojis.get("buckbracket2")}"
                 await message.edit(embed=GameEntity.g_embed)
                 i += 1
                 await asyncio.sleep(1.5)
@@ -193,6 +293,7 @@ class MiniGamesCog(commands.Cog):
             if len(GameEntity.shotgun.clip) == 0:
                 GameEntity.quantity_of_bullets = random.randint(4, 8)
                 GameEntity.insert_shells()
+                GameEntity.shuffle_clip()
 
                 await fill_animation([bullet.type == "live" for bullet in GameEntity.shotgun.clip].count(True),
                                      [bullet.type == "blank" for bullet in GameEntity.shotgun.clip].count(True))
@@ -211,9 +312,23 @@ class MiniGamesCog(commands.Cog):
             await asyncio.sleep(2)
 
 
+
             if GameEntity.turn:
-                view = GameView(ctx.author, timeout=15)
-                GameEntity.g_embed.description = f"{now(GameEntity.turn)}\nВыберите себя или байкера"
+                GameEntity.g_embed.remove_field(0)
+                GameEntity.g_embed.remove_field(1)
+                view = GameView(ctx.author, timeout=60)
+                GameEntity.g_embed.add_field(name=f"{game_emojis.get("inv")}**ИНВЕНТАРЬ**", value="Пока что недоступен (WIP)", inline=True)
+                GameEntity.g_embed.add_field(name=f"{game_emojis.get("shoot")}**ДРОБОВИК**", value="Взять дробовик\nи выстрелить", inline=True)
+                GameEntity.g_embed.description = (
+                f"\n## {game_emojis.get("biker2")} {GameEntity.dealer.nickname}"
+                f"\n### {game_emojis.get("hpbracket")}{game_emojis.get("chargeg") * GameEntity.dealer.hp}{game_emojis.get("nocharge") * (5 - GameEntity.dealer.hp)}{game_emojis.get("bracket")}\n"
+                f"{game_emojis.get("mmm")}{game_emojis.get("items1")}{''.join([itemcell.item_type for itemcell in GameEntity.dealer.inventory[0:4]])}{game_emojis.get("items2")}\n"
+                f"{game_emojis.get("mmm")}{game_emojis.get("items3")}{''.join([itemcell.item_type for itemcell in GameEntity.dealer.inventory[4:8]])}{game_emojis.get("items4")}\n"
+                f"\n## {game_emojis.get("player")} {GameEntity.player.nickname}"
+                f"\n### {game_emojis.get("hpbracket")}{game_emojis.get("chargeg") * GameEntity.player.hp}{game_emojis.get("nocharge") * (5 - GameEntity.player.hp)}{game_emojis.get("bracket")}\n"
+                f"{game_emojis.get("mmm")}{game_emojis.get("items1")}{''.join([itemcell.item_type for itemcell in GameEntity.player.inventory[0:4]])}{game_emojis.get("items2")}\n"
+                f"{game_emojis.get("mmm")}{game_emojis.get("items3")}{''.join([itemcell.item_type for itemcell in GameEntity.player.inventory[4:8]])}{game_emojis.get("items4")}\n"
+                )
                 await  message.edit(embed=GameEntity.g_embed, view=view)
 
                 try:
@@ -224,7 +339,23 @@ class MiniGamesCog(commands.Cog):
                     active_games.pop(user_id, None)
                     return
 
-                GameEntity.g_embed.description = f"{GameEntity.player.shoot(GameEntity, GameEntity.shotgun, choice)}"
+                GameEntity.g_embed.remove_field(0)
+                GameEntity.g_embed.remove_field(1)
+
+
+
+                description = GameEntity.player.shoot(GameEntity, GameEntity.shotgun, choice)
+
+                if GameEntity.animation is not None:
+                    GameEntity.g_embed = discord.Embed(colour=discord.Colour(int('768053', 16)),
+                                       title=f'Байкшотинг {ctx.author.display_name}')
+                    GameEntity.g_embed.set_image(url=GameEntity.animation)
+                    await message.edit(embed=GameEntity.g_embed, view=None)
+                    await asyncio.sleep(2.33)
+                    GameEntity.g_embed.set_image(url=None)
+                    GameEntity.animation = None
+
+                GameEntity.g_embed.description = f"{description}"
                 await message.edit(embed=GameEntity.g_embed, view=None)
                 await asyncio.sleep(5)
                 GameEntity.g_embed.set_image(url=None)
@@ -233,7 +364,16 @@ class MiniGamesCog(commands.Cog):
                 await asyncio.sleep(2)
 
             else:
-                GameEntity.g_embed.description = f"{GameEntity.dealer.think(GameEntity, GameEntity.shotgun)}"
+                description = GameEntity.dealer.think(GameEntity, GameEntity.shotgun)
+                if GameEntity.animation is not None:
+                    GameEntity.g_embed = discord.Embed(colour=discord.Colour(int('768053', 16)),
+                                       title=f'Байкшотинг {ctx.author.display_name}')
+                    GameEntity.g_embed.set_image(url=GameEntity.animation)
+                    await message.edit(embed=GameEntity.g_embed, view=None)
+                    await asyncio.sleep(2.33)
+                    GameEntity.g_embed.set_image(url=None)
+                    GameEntity.animation = None
+                GameEntity.g_embed.description = f"{description}"
                 await message.edit(embed=GameEntity.g_embed)
                 await asyncio.sleep(5)
                 GameEntity.g_embed.set_image(url=None)
