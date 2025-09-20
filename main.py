@@ -79,7 +79,15 @@ async def restore_active_timeouts(bot):
 async def get_prefix(bot, message):
     if not message.guild:
         return commands.when_mentioned_or("!")(bot, message)
-    prefix = str(servers_ref.child(str(message.guild.id)).child("PREFIX").get())
+
+
+    prefix = await asyncio.wait_for(
+        asyncio.to_thread(lambda: str(servers_ref.child(str(message.guild.id)).child("PREFIX").get())
+    ),
+    timeout=5.0
+    )
+
+
     if prefix is None or prefix == '':
         return commands.when_mentioned_or("!")(bot, message)
     return commands.when_mentioned_or(prefix)(bot, message)
@@ -124,7 +132,9 @@ async def on_ready():
     except Exception as exception:
         print(f"event.on_ready: {exception}")
 
-    presence_loop.start()
+    if not presence_loop.is_running():
+        presence_loop.start()
+
 
 
 @client.event
