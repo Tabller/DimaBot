@@ -11,7 +11,7 @@ import requests
 from discord import app_commands, Color, ui
 from discord.ext import commands
 
-from src.config import nights_ref, servers_ref
+from src.config import nights_ref, servers_ref, ui_localization
 
 
 def iterate(author):
@@ -25,16 +25,28 @@ def iterate(author):
     return word
 
 class GameSubmitSurvey(ui.Modal, title='Предложение игр для Геймнайта', ):
-    game1 = ui.TextInput(label='Название первой игры', max_length=63)
-    game2 = ui.TextInput(label='Название второй игры', max_length=63, required=False)
-    game3 = ui.TextInput(label='Название третьей игры', max_length=63, required=False)
-    confirm = ui.TextInput(label='я СОГЛАСЕН что ПРИДЁТСЯ пойти на геймнайт', placeholder="да", required=True)
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+        self.LANG = f"LANG_{servers_ref.child(str(self.guild_id)).child("LANGUAGE").get()}"
+
+        self.game1 = ui.TextInput(label=f'{ui_localization.get("GameSubmitSurvey").get("first_game").get(self.LANG)}', max_length=63)
+        self.game2 = ui.TextInput(label=f'{ui_localization.get("GameSubmitSurvey").get("second_game").get(self.LANG)}', max_length=63, required=False)
+        self.game3 = ui.TextInput(label=f'{ui_localization.get("GameSubmitSurvey").get("third_game").get(self.LANG)}', max_length=63, required=False)
+        self.confirm = ui.TextInput(label=f'{ui_localization.get("GameSubmitSurvey").get("accept_terms").get(self.LANG)}', placeholder=f"{ui_localization.get("GameSubmitSurvey").get("placeholder").get(self.LANG)}", required=True)
+        super().__init__(title=f"{ui_localization.get("GameSubmitSurvey").get("title").get(self.LANG)}")
+
+        self.add_item(self.game1)
+        self.add_item(self.game2)
+        self.add_item(self.game3)
+        self.add_item(self.confirm)
+
     async def on_submit(self, interaction: discord.Interaction):
-        if self.confirm.value.lower() != "да":
+        if self.confirm.value.lower() not in ['да', 'yes']:
             return
         await interaction.response.defer(ephemeral=True)
 
         server = servers_ref.child(str(interaction.guild.id))
+        LANG = f"LANG_{servers_ref.child(str(interaction.guild_id)).child("LANGUAGE").get()}"
         server_dict = server.get()
         try:
             target_channel = interaction.client.get_channel(int(server_dict.get("BOT_CHANNEL_ID")))
@@ -42,7 +54,7 @@ class GameSubmitSurvey(ui.Modal, title='Предложение игр для Г�
             target_channel = None
 
         if target_channel is None:
-            message = await interaction.followup.send("какой же всё таки пипец что бот не настроен... админы напишите `/settings` и добавьте BOT_CHANNEL_ID (основной канал где бот будет писать)")
+            message = await interaction.followup.send(f"{ui_localization.get("GameSubmitSurvey").get("no_settings").get(LANG)}")
             return
 
         submitted_games = []
@@ -85,7 +97,7 @@ class GameSubmitSurvey(ui.Modal, title='Предложение игр для Г�
                     })
 
         display_namee = iterate(interaction.user.display_name)
-        embed1 = discord.Embed(description=f'**{display_namee}** предложил следующие игры: **{', '.join(map(str, submitted_games))}**',
+        embed1 = discord.Embed(description=f'**{display_namee}** {ui_localization.get("GameSubmitSurvey").get("suggested_games").get(LANG)}: **{', '.join(map(str, submitted_games))}**',
                                colour=discord.Colour(int('ec5353', 16)))
         message = await target_channel.send(embed=embed1)
         message_id = message.id
@@ -95,9 +107,10 @@ class GamenightCog(commands.Cog):
     def __init__(self, client):
         self.client = client
 
-    @app_commands.command(name="gamenight_list", description="Просмотреть список и возможность скачать его в виде json-file")
+    @app_commands.command(name="gamenight_list", description="View the list and download it as a json-file.")
     async def gamenight_list(self, interaction: discord.Interaction):
         """Команда, которая генерирует и список, и json-file списка."""
+        LANG = f"LANG_{servers_ref.child(str(interaction.guild_id)).child("LANGUAGE").get()}"
 
         """Генерация json-file списка"""
         nights_data = nights_ref.get()
@@ -153,7 +166,7 @@ class GamenightCog(commands.Cog):
                     message += f"{game}\n"
 
             embed = discord.Embed(
-                title="Список возможных игр Геймнайта:",
+                title=f"{ui_localization.get("gamenight_list").get("gamenight_list_possible_games").get(LANG)}:",
                 description=f"{message}",
                 color=Color.gold(),
             )
@@ -163,7 +176,7 @@ class GamenightCog(commands.Cog):
                 def __init__(self):
                     super().__init__(timeout=None)
                     self.add_item(discord.ui.Button(
-                        label='скачать json для вставки в рулетку',
+                        label=f'{ui_localization.get("gamenight_list").get("gamenight_list_json").get(LANG)}',
                         style=discord.ButtonStyle.gray,
                         url=str(file_url),
                         emoji="🐓",
@@ -174,12 +187,13 @@ class GamenightCog(commands.Cog):
 
             await interaction.response.send_message(embed=embed, view=DownloadButton())
         else:
-            await interaction.response.send_message('Лист пуст')
+            await interaction.response.send_message(f'{ui_localization.get("gamenight_list").get("gamenight_list_empty").get(LANG)}')
 
 
-    @app_commands.command(name="gamenight_start", description="Начать Геймнайт и запустить предложку игр")
+    @app_commands.command(name="gamenight_start", description="Launch Game Night event and game suggestion")
     @app_commands.checks.has_permissions(administrator=True)
     async def gamenight_start(self, interaction: discord.Interaction):
+        LANG = f"LANG_{servers_ref.child(str(interaction.guild_id)).child("LANGUAGE").get()}"
         await interaction.response.defer()
         nights_data = nights_ref.get()
         if not (nights_data.get(str(interaction.guild.id))):
@@ -187,32 +201,34 @@ class GamenightCog(commands.Cog):
             characters = string.ascii_lowercase + string.digits
             result = ''.join(random.choice(characters) for _ in range(15))
             night_server.set({"BIN": f"{result}"})
-            embed = discord.Embed(description="рулетка инициализирована предлагайте игры", color=Color.green())
+            embed = discord.Embed(description=f"{ui_localization.get("gamenight_start").get("gamenight_start_launch").get(LANG)}", color=Color.green())
             class SubmitButton(discord.ui.View):
-                @discord.ui.button(label='предложить игру', style=discord.ButtonStyle.success, emoji="😂")
+                @discord.ui.button(label=f'{ui_localization.get("gamenight_start").get("gamenight_start_suggest").get(LANG)}', style=discord.ButtonStyle.success, emoji="😂")
                 async def respond(self, button_interaction: discord.Interaction, button: discord.ui.Button):
                     new_nights_data = nights_ref.get()
                     if new_nights_data.get(str(button_interaction.guild.id)):
-                        await button_interaction.response.send_modal(GameSubmitSurvey())
+                        await button_interaction.response.send_modal(GameSubmitSurvey(interaction.guild.id))
                     else:
-                        await button_interaction.response.send_modal("геймнайт уже закончился", ephemeral=True)
+                        await button_interaction.response.send_modal(f"{ui_localization.get("gamenight_start").get("gamenight_start_end").get(LANG)}", ephemeral=True)
             await interaction.followup.send(embed=embed, view=SubmitButton(timeout=None))
         else:
-            await interaction.followup.send("ну геймнайт уже начат у твоего сервера", ephemeral=True)
+            await interaction.followup.send(f"{ui_localization.get("gamenight_start").get("gamenight_start_already").get(LANG)}", ephemeral=True)
 
-    @app_commands.command(name="gamenight_end", description="Закончить предложку Геймнайта")
+    @app_commands.command(name="gamenight_end", description="Game Night event end")
     @app_commands.checks.has_permissions(administrator=True)
     async def gamenight_end(self, interaction: discord.Interaction):
+        LANG = f"LANG_{servers_ref.child(str(interaction.guild_id)).child("LANGUAGE").get()}"
         nights_data = nights_ref.get()
         if nights_data.get(str(interaction.guild.id)):
             nights_ref.child(str(interaction.guild.id)).delete()
-            embed = discord.Embed(description="предложка всё! больше нельзя предлагать игры", color=Color.red())
+            embed = discord.Embed(description=f"{ui_localization.get("gamenight_end").get("gamenight_end_end").get(LANG)}", color=Color.red())
         else:
-            embed = discord.Embed(description="ау геймнайта ещё нету")
+            embed = discord.Embed(description=f"{ui_localization.get("gamenight_end").get("gamenight_end_not_started_error").get(LANG)}")
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="gamenight_gamedelete", description="Удалить СВОЮ игру из Геймнайта")
+    @app_commands.command(name="gamenight_gamedelete", description="Delete YOUR game suggestion in Game Night event")
     async def gamenight_gamedelete(self, interaction: discord.Interaction, suggestion: str):
+        LANG = f"LANG_{servers_ref.child(str(interaction.guild_id)).child("LANGUAGE").get()}"
         await interaction.response.defer()
         user_data = nights_ref.child(str(interaction.guild.id)).child(str(interaction.user.id)).get()
         result = ''
@@ -231,11 +247,11 @@ class GamenightCog(commands.Cog):
                 t_list.pop(matching_keys[0])
                 game_path = f"{str(interaction.guild.id)}/{str(interaction.user.id)}/{matching_keys[0]}"
                 nights_ref.child(game_path).delete()
-                await interaction.followup.send(f'Успешно удалён элемент {suggestion}.')
+                await interaction.followup.send(f'{ui_localization.get("gamenight_gamedelete").get("gamenight_gamedelete_game_deletion").get(LANG)} {suggestion}.')
             else:
-                await interaction.followup.send(f'Элемент не найден в вашем списке...')
+                await interaction.followup.send(f'{ui_localization.get("gamenight_gamedelete").get("gamenight_gamedelete_no_game").get(LANG)}')
         else:
-            await interaction.followup.send(f'User не найден в списке...')
+            await interaction.followup.send(f'{ui_localization.get("gamenight_gamedelete").get("gamenight_gamedelete_no_user").get(LANG)} {suggestion}')
 
     @gamenight_gamedelete.error
     async def game_delete_error(self, ctx, error):
