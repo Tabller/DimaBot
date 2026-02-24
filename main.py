@@ -1,4 +1,5 @@
 import itertools
+import math
 import time
 from datetime import datetime
 import discord
@@ -14,7 +15,7 @@ from dotenv import load_dotenv
 
 from src.cogs.moderation_cog import finish_timeout_after
 from src.config import nights_ref, economy_ref, inventory_ref, penalty_ref, servers_ref, PREFIX, WELCOME_MESSAGE_EN, \
-    items, fish_book, cool_dict
+    all_items, fish_book, cool_dict, all_fish, full_items, ui_localization, rpg_stuff_ref
 
 if nights_ref.get() is None:
     server = nights_ref.child("SERVER_ID")
@@ -39,6 +40,11 @@ elif servers_ref.get() is None:
                 'TIMEOUT_ROLE_ID': 'None',
                 'BOT_CHANNEL_ID': 'None',
                 'LANGUAGE': 'RU'})
+elif rpg_stuff_ref.get() is None:
+    user = rpg_stuff_ref.child("USER_ID1")
+    user.set({"current_quest": None,
+              "current_lore": None
+    })
 else:
     pass
 
@@ -169,7 +175,7 @@ Shop
 @client.hybrid_command()
 @commands.cooldown(1, 3, commands.BucketType.user)
 async def shop(ctx):
-    embed = myshop.embed
+    embed = myshop.shop_view(ctx.guild.id)
 
 
     class BackButton(discord.ui.View):
@@ -177,65 +183,101 @@ async def shop(ctx):
             super().__init__(timeout=timeout)
             self.author = author
 
-        @discord.ui.button(label='Назад', style=discord.ButtonStyle.success)
+        LANG = f"LANG_{servers_ref.child(str(ctx.guild.id)).child("LANGUAGE").get()}"
+
+        @discord.ui.button(label=f'{ui_localization.get("shop").get("Back_Button").get(LANG)}', style=discord.ButtonStyle.success)
         async def back(self, interaction: discord.Interaction, button: discord.ui.Button):
-            await interaction.response.edit_message(embed=myshop.shop_view(), view=shopButtons(ctx.author, timeout=None))
+            await interaction.response.edit_message(embed=myshop.shop_view(interaction.guild_id), view=shopButtons(ctx.author, timeout=None))
 
         async def interaction_check(self, interaction: Interaction):
             return interaction.user.id == self.author.id
 
-        @discord.ui.button(label='Купить', style=discord.ButtonStyle.success)
+        @discord.ui.button(label=f'{ui_localization.get("shop").get("Buy_Button").get(LANG)}', style=discord.ButtonStyle.success)
         async def buy(self, interaction: discord.Interaction, button: discord.ui.Button):
-            embed = discord.Embed(color=Color.dark_purple(), title="Магазин", description=f"Вы купили {current_emoji}")
+            LANG = f"LANG_{servers_ref.child(str(interaction.guild_id)).child("LANGUAGE").get()}"
+            embed = discord.Embed(color=Color.dark_purple(), title=f"{ui_localization.get("shop").get("Shop_Name").get(LANG)}", description=f"{ui_localization.get("shop").get("Buy_Interaction").get(LANG)} {current_emoji}")
             user_data = inventory_ref.child(str(self.author.id)).get()
-            multiplier, word, name, way_to_sell, func, icon, price = items.get(current_emoji)
+
+            shop_price = full_items.get(current_emoji).get('shop_price')
+
             economy_data = economy_ref.child(str(self.author.id)).get()
             if economy_data is None:
-                embed = discord.Embed(color=Color.dark_purple(), title="Магазин",
-                                      description=f"У вас не хватает денег!")
+                embed = discord.Embed(color=Color.dark_purple(), title=f"{ui_localization.get("shop").get("Shop_Name").get(LANG)}",
+                                      description=f"{ui_localization.get("shop").get("Money_Warn").get(LANG)}")
                 await interaction.response.edit_message(embed=embed, view=None)
                 return
             else:
                 current_coins = economy_data['coins']
-                if int(current_coins) < int(price):
-                    embed = discord.Embed(color=Color.dark_purple(), title="Магазин",
-                                          description=f"У вас не хватает денег!")
+                if int(current_coins) < int(shop_price):
+                    embed = discord.Embed(color=Color.dark_purple(), title=f"{ui_localization.get("shop").get("Shop_Name").get(LANG)}",
+                                          description=f"{ui_localization.get("shop").get("Money_Warn").get(LANG)}")
                     await interaction.response.edit_message(embed=embed, view=None)
                     return
 
 
             if user_data is None:
                 if current_emoji in fish_book.keys():
-                    inventory_ref.child(str(self.author.id)).set(
-                        {f'{current_emoji}' + str(int(time.time() * 1000)): int(int(price) * random.random())})
+                    multiplier_price = full_items.get(current_emoji)['multiplier_price']()
+                    inventory_ref.child(str(self.author.id)).child(f'{current_emoji}' + str(int(time.time() * 1000))).set({
+                      "price": int(shop_price) - int(random.randint(5, 15)),
+                      "multiplier": multiplier_price,
+                      "rarity": math.floor(multiplier_price)
+                    })
                     current_coins = economy_data['coins']
                     economy_ref.child(str(self.author.id)).set({
-                        'coins': current_coins - int(price)
+                        'coins': current_coins - int(shop_price)
                     })
                     await interaction.response.edit_message(embed=embed, view=None)
                 else:
-                    inventory_ref.child(str(self.author.id)).update({f'{current_emoji}' + str(int(time.time() * 1000)): int(int(price) * random.random())})
+                    item_key = f'{current_emoji}' + str(int(time.time() * 1000))
+                    base_price = round(int(shop_price) * random.random(), 5)
+                    multiplier_price = full_items.get(current_emoji)['multiplier_price']()
+                    # inventory_ref.child(str(self.author.id)).update({f'{current_emoji}' + str(int(time.time() * 1000)): round(int(shop_price) * random.random(), 5)})
+                    inventory_ref.child(str(self.author.id)).child(item_key).update(
+                        {
+                            "price": base_price,
+                            "multiplier": multiplier_price,
+                            "rarity": math.floor(multiplier_price)
+                        }
+                    )
                     current_coins = economy_data['coins']
                     economy_ref.child(str(self.author.id)).set({
-                        'coins': current_coins - int(price)
+                        'coins': current_coins - int(shop_price)
                     })
                     await interaction.response.edit_message(embed=embed, view=None)
             else:
                 if current_emoji in fish_book.keys():
-                    inventory_ref.child(str(self.author.id)).update(
-                        {f'{current_emoji}' + str(int(time.time() * 1000)): (int(price) - int(random.randint(5, 15)))})
+                    # inventory_ref.child(str(self.author.id)).update(
+                    #     {f'{current_emoji}' + str(int(time.time() * 1000)): (int(shop_price) - int(random.randint(5, 15)))})
+                    item_key = f'{current_emoji}' + str(int(time.time() * 1000))
+                    base_price = int(shop_price) - int(random.randint(5, 15))
+                    multiplier_price = full_items.get(current_emoji)['multiplier_price']()
+                    inventory_ref.child(str(self.author.id)).child(item_key).update({
+                        "price": base_price,
+                        "multiplier": multiplier_price,
+                        "rarity": math.floor(multiplier_price)
+                    })
+
                     current_coins = economy_data['coins']
                     economy_ref.child(str(self.author.id)).set({
-                        'coins': current_coins - int(price)
+                        'coins': current_coins - int(shop_price)
                     })
                     await interaction.response.edit_message(embed=embed, view=None)
                 else:
-                    new_item = inventory_ref.child(str(self.author.id)).update({
-                        f'{current_emoji}' + str(int(time.time() * 1000)): int(int(price) * random.random())
+                    item_key = f'{current_emoji}' + str(int(time.time() * 1000))
+                    base_price = int(int(shop_price) * random.random())
+                    multiplier_price = full_items.get(current_emoji)['multiplier_price']()
+                    # new_item = inventory_ref.child(str(self.author.id)).update({
+                    #     f'{current_emoji}' + str(int(time.time() * 1000)): int(int(shop_price) * random.random())
+                    # })
+                    inventory_ref.child(str(self.author.id)).child(item_key).update({
+                        "price": base_price,
+                        "multiplier": multiplier_price,
+                        "rarity": math.floor(multiplier_price)
                     })
                     current_coins = economy_data['coins']
                     economy_ref.child(str(self.author.id)).set({
-                        'coins': current_coins - int(price)
+                        'coins': current_coins - int(shop_price)
                     })
                     await interaction.response.edit_message(embed=embed, view=None)
 
@@ -247,34 +289,43 @@ async def shop(ctx):
             super().__init__(timeout=timeout)
             self.author = author
 
-        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji=str(myshop.chosen_keys[0][5]))
+        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji=str(myshop.chosen_keys[0]))
         async def first(self, interaction: discord.Interaction, button: discord.ui.Button):
             global current_emoji
-            current_emoji = myshop.chosen_keys[0][5]
-            item_info = discord.Embed(color=Color.dark_purple(), title=myshop.chosen_keys[0][2], description=None)
-            item_info.add_field(name="Описание:", value=myshop.chosen_keys[0][3], inline=True)
+            LANG = f"LANG_{servers_ref.child(str(interaction.guild_id)).child("LANGUAGE").get()}"
+            current_emoji = myshop.chosen_keys[0]
+            item_info = discord.Embed(color=Color.dark_purple(), title=myshop.chosen_keys[0], description=None)
+            item_info.add_field(name=f"{ui_localization.get("shop").get("Description_Label").get(LANG)}:", value=full_items.get(myshop.chosen_keys[0]).get("description").get(LANG), inline=True)
             await interaction.response.edit_message(embed=item_info, view=BackButton(ctx.author, timeout=None))
 
         async def interaction_check(self, interaction: Interaction):
             return interaction.user.id == self.author.id
 
-        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji=str(myshop.chosen_keys[1][5]))
+        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji=str(myshop.chosen_keys[1]))
         async def second(self, interaction: discord.Interaction, button: discord.ui.Button):
             global current_emoji
-            current_emoji = myshop.chosen_keys[1][5]
-            item_info = discord.Embed(color=Color.dark_purple(), title=myshop.chosen_keys[1][2], description=None)
-            item_info.add_field(name="Описание:", value=myshop.chosen_keys[1][3], inline=True)
+            LANG = f"LANG_{servers_ref.child(str(interaction.guild_id)).child("LANGUAGE").get()}"
+            current_emoji = myshop.chosen_keys[1]
+            item_info = discord.Embed(color=Color.dark_purple(),
+                                      title=myshop.chosen_keys[1],
+                                      description=None)
+            item_info.add_field(name=f"{ui_localization.get("shop").get("Description_Label").get(LANG)}:", value=full_items.get(myshop.chosen_keys[1]).get("description").get(
+                LANG), inline=True)
             await interaction.response.edit_message(embed=item_info, view=BackButton(ctx.author, timeout=None))
 
         async def interaction_check(self, interaction: Interaction):
             return interaction.user.id == self.author.id
 
-        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji=str(myshop.chosen_keys[2][5]))
+        @discord.ui.button(label='', style=discord.ButtonStyle.success, emoji=str(myshop.chosen_keys[2]))
         async def third(self, interaction: discord.Interaction, button: discord.ui.Button):
             global current_emoji
-            current_emoji = myshop.chosen_keys[2][5]
-            item_info = discord.Embed(color=Color.dark_purple(), title=myshop.chosen_keys[2][2], description=None)
-            item_info.add_field(name="Описание:", value=myshop.chosen_keys[2][3], inline=True)
+            current_emoji = myshop.chosen_keys[2]
+            LANG = f"LANG_{servers_ref.child(str(interaction.guild_id)).child("LANGUAGE").get()}"
+            item_info = discord.Embed(color=Color.dark_purple(),
+                                      title=myshop.chosen_keys[2],
+                                      description=None)
+            item_info.add_field(name=f"{ui_localization.get("shop").get("Description_Label").get(LANG)}:", value=full_items.get(myshop.chosen_keys[2]).get("description").get(
+                LANG), inline=True)
             await interaction.response.edit_message(embed=item_info, view=BackButton(ctx.author, timeout=None))
 
         async def interaction_check(self, interaction: Interaction):
@@ -325,7 +376,10 @@ class ShopClass():
     def initialize_shop(self):
         self.embed = discord.Embed(color=Color.dark_purple(), title="Магазин", description=None)
         self.chosen_keys = []
-        shop_catalogue = list(items.values())
+
+        shop_catalogue = list(full_items.keys())
+
+        LANG = "LANG_RU"
         for _ in range(3):
             self.chosen_keys.append(random.choice(shop_catalogue))
 
@@ -338,17 +392,18 @@ class ShopClass():
                     self.chosen_keys.insert(self.chosen_keys.index(save_index),random.choice(shop_catalogue))
 
         for item in self.chosen_keys:
-            self.embed.add_field(name=item[5], value=item[2], inline=True)
-            self.embed.add_field(name=f"{item[6]}", value="\n", inline=False)
+            self.embed.add_field(name=item, value=full_items.get(item).get("item_name").get(LANG), inline=True)
+            self.embed.add_field(name=f"{full_items.get(item).get("shop_price")}", value="\n", inline=False)
 
 
         return self.chosen_keys
 
-    def shop_view(self):
-        self.embed = discord.Embed(color=Color.dark_purple(), title="Магазин", description=None)
+    def shop_view(self, guild_id):
+        LANG = f"LANG_{servers_ref.child(str(guild_id)).child("LANGUAGE").get()}"
+        self.embed = discord.Embed(color=Color.dark_purple(), title=f"{ui_localization.get("shop").get("Shop_Name").get(LANG)}")
         for item in self.chosen_keys:
-            self.embed.add_field(name=item[5], value=item[2], inline=True)
-            self.embed.add_field(name=f"{item[6]}", value="\n", inline=False)
+            self.embed.add_field(name=item, value=full_items.get(item).get("item_name").get(LANG), inline=True)
+            self.embed.add_field(name=f"{full_items.get(item).get("shop_price")}", value="\n", inline=False)
         return self.embed
 
 '''
