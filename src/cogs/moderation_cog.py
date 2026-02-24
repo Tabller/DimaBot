@@ -7,19 +7,19 @@ import discord
 from discord import app_commands, ui
 from discord.ext import commands
 
-from src.config import servers_ref, penalty_ref
+from src.config import servers_ref, penalty_ref, ui_localization
 
 
 def parse_time(time_str: str) -> int:
     time_units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
     match = re.fullmatch(r"(\d+)([smhd])", time_str.lower())
     if not match:
-        raise ValueError("какашно вводишь время")
+        raise ValueError("moderation_cog, !cage: incorrect time")
     value, unit = match.groups()
     if int(value) < 99999:
         return int(value) * time_units[unit]
     else:
-        raise ValueError("какашно вводишь время")
+        raise ValueError("moderation_cog, !cage: incorrect time")
 
 class SettingsModal(ui.Modal, title="dimaBot's settings menu"):
     def __init__(self, guild_id: int):
@@ -88,11 +88,11 @@ class ModerationCog(commands.Cog):
     cage
     """
     @commands.hybrid_command(name="cage", with_app_command=True)
-    @app_commands.describe(member="юзер", time="время (s/m/h/d)")
+    @app_commands.describe(member="user", time="time (s/m/h/d)")
     @commands.has_permissions(administrator=True)
     async def cage(self, ctx: commands.Context, member: discord.Member, time: str, bananas: str = None, *,
                      reason: str = None):
-
+        LANG = f"LANG_{servers_ref.child(str(ctx.guild.id)).child("LANGUAGE").get()}"
         server_data = servers_ref.child(str(ctx.guild.id)).get()
         if server_data:
             role_id = server_data.get("TIMEOUT_ROLE_ID")
@@ -105,19 +105,19 @@ class ModerationCog(commands.Cog):
             role = None
 
         if role is None:
-            await ctx.send("какой же всё таки пипец что бот не настроен... админы напишите `/settings` и добавьте TIMEOUT_ROLE_ID (роль, которая даётся пользователям для таймаута)")
+            await ctx.send(f'{ui_localization.get("cage").get("cage_no_timeout_role").get(LANG)}')
             return
 
         if reason is not None:
             if len(reason) > 1024:
-                await ctx.reply("что биографию свою пишешь чтоли", ephemeral=True)
+                await ctx.reply(f'{ui_localization.get("cage").get("cage_long_reason").get(LANG)}', ephemeral=True)
                 return
 
 
         if not (bananas is None):
             new_thing = int(bananas)
             if new_thing <= 0 or new_thing > 99999:
-                await  ctx.reply("бананы ограничиваются от 0 до 99999", ephemeral=True)
+                await  ctx.reply(f"{ui_localization.get("cage").get("cage_bananas_limit").get(LANG)}", ephemeral=True)
                 return
         else:
             pass
@@ -125,13 +125,13 @@ class ModerationCog(commands.Cog):
 
 
         if role in member.roles:
-            await ctx.reply(f"{member.mention} уже там", ephemeral=True)
+            await ctx.reply(f"{member.mention} {ui_localization.get("cage").get("cage_already_in").get(LANG)}", ephemeral=True)
             return
 
 
         time_in_seconds = parse_time(time)
         if time_in_seconds <= 0:
-            await ctx.reply("какашечно вводишь время", ephemeral=True)
+            await ctx.reply(f"{member.mention} {ui_localization.get("cage").get("cage_incorrect_time").get(LANG)}", ephemeral=True)
             return
 
         server_dict = servers_ref.child(str(ctx.guild.id)).get()
@@ -144,21 +144,23 @@ class ModerationCog(commands.Cog):
 
         if not channel:
             message = await ctx.send(
-                "какой же всё таки пипец что бот не настроен... админы напишите `/settings` и добавьте TIMEOUT_CHANNEL_ID (канал для таймаутов)")
+                f"{ui_localization.get("cage").get("cage_no_channel").get(LANG)}")
             return
 
         try:
             await member.add_roles(role)
-            await ctx.reply(f"отправляется в орангутан {member.mention}.")
+            await ctx.reply(f"{ui_localization.get("cage").get("cage_start").get(LANG)} {member.mention}.")
         except Exception as e:
-            print(f"moderation_cog, !клетка: {e}")
-            await ctx.reply("у бота нету прав на выдачу ролей!!", ephemeral=True)
+            print(f"moderation_cog, !cage: {e}")
+            await ctx.reply(f"{ui_localization.get("cage").get("cage_no_manage_roles").get(LANG)}", ephemeral=True)
 
 
-        names = ["бананов"]
-        things = ["🍌"]
-        thing = random.choice(things)
-        name = names[things.index(thing)]
+        cage_items = {"🍌": {
+            "LANG_RU": "бананов",
+            "LANG_EN": "bananas"
+        }}
+        thing = random.choice(*cage_items.keys())
+        name = cage_items.get(thing).get(LANG)
 
         now = datetime.now()
         end_time = now + timedelta(seconds=time_in_seconds)
@@ -171,26 +173,26 @@ class ModerationCog(commands.Cog):
 
         if channel:
             embed = discord.Embed(
-                title=f"добро пожаловать в этот канал, {member}",
-                description=f"вы очевидно в чём-то провинились раз здесь оказались.",
+                title=f"{ui_localization.get("cage").get("cage_welcome1").get(LANG)}, {member}",
+                description=f"{ui_localization.get("cage").get("cage_welcome2").get(LANG)}",
                 color=discord.Color.blurple()
             )
 
 
-            embed.add_field(name="Вы будете находиться здесь до:", value=f"<t:{unix_timestamp}>")
+            embed.add_field(name=f"{ui_localization.get("cage").get("cage_time").get(LANG)}", value=f"<t:{unix_timestamp}>")
 
             if reason:
-                embed.add_field(name="здесь осталась записка. вот, кстати, её текст:", value=f"{reason}",
+                embed.add_field(name=f"{ui_localization.get("cage").get("cage_note").get(LANG)}:", value=f"{reason}",
                                 inline=False)
-                embed.add_field(name="автор:", value=f"-{ctx.author}")
+                embed.add_field(name=f"{ui_localization.get("cage").get("cage_note_author").get(LANG)}:", value=f"-{ctx.author}")
 
             if bananas:
-                embed.add_field(name=f"Чтобы выбраться отсюда, вам необходимо:",
-                                value=f"почистить {new_thing} {name}, используя !почистить {thing}",
+                embed.add_field(name=f"{ui_localization.get("cage").get("cage_escape_condition1").get(LANG)}:",
+                                value=f"{ui_localization.get("cage").get("cage_escape_condition2").get(LANG)} {new_thing} {name}, {ui_localization.get("cage").get("cage_escape_condition3").get(LANG)} {thing}",
                                 inline=False)
             await channel.send(embed=embed)
         else:
-            await ctx.send("кто удалил канал клетки")
+            await ctx.send(f"{ui_localization.get("cage").get("cage_channel_deletion").get(LANG)}")
             raise Exception(f"moderation_cog, !клетка: канал удалился")
 
 
@@ -198,7 +200,7 @@ class ModerationCog(commands.Cog):
 
         try:
             await member.remove_roles(role)
-            await ctx.send(f"ёмаё, {member.mention} выпустили из обезяника")
+            await ctx.send(f"{ui_localization.get("cage").get("cage_escape1").get(LANG)}, {member.mention} {ui_localization.get("cage").get("cage_escape2").get(LANG)}")
             penalty_ref.child(str(member.id)).delete()
         except Exception as e:
             print(f"moderation_cog, !клетка: {e}")
