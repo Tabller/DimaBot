@@ -33,6 +33,7 @@ jobs:
                       host: ${{ secrets.HOST }}
                       username: ${{ secrets.USER }}
                       key: ${{ secrets.SSH_PRIVATE_KEY }}
+                      debug: true
                       script: |
                            cd /root/python-projects/DimaBot
                            git pull origin main
