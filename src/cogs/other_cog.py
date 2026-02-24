@@ -4,7 +4,8 @@ import discord
 from discord import ui
 from discord.ext import commands
 
-from src.config import FEEDBACK_CHANNEL_ID
+from src.config import FEEDBACK_CHANNEL_ID, servers_ref, ui_localization
+
 
 class Menu(discord.ui.View):
     def __init__(self):
@@ -17,34 +18,35 @@ class OtherCog(commands.Cog):
 
     @commands.hybrid_command()
     async def feedback(self, ctx, *, text):
+        LANG = f"LANG_{servers_ref.child(str(ctx.guild.id)).child("LANGUAGE").get()}"
         message_time = ctx.message.created_at
         author = ctx.author
         jump_url = ctx.message.jump_url
         channel = self.client.get_channel(ctx.channel.id) if hasattr(ctx.channel, 'name') else 'DM'
-        embed = discord.Embed(description=text, title="Фидбек ft. Димабот").set_footer(text=ctx.author.display_name,
+        embed = discord.Embed(description=text, title=f"{ui_localization.get("feedback").get("feedback_title1").get(LANG)} ft. {ui_localization.get("feedback").get("feedback_title2").get(LANG)}").set_footer(text=ctx.author.display_name,
                                                                                        icon_url=ctx.author.avatar.url)
 
-        class AnswerForm(ui.Modal, title='Ответ на входящий фидбек'):
-            Field = ui.TextInput(label="Текст")
+        class AnswerForm(ui.Modal, title=f'{ui_localization.get("feedback").get("feedback_answer").get(LANG)}'):
+            Field = ui.TextInput(label=f"{ui_localization.get("feedback").get("feedback_text").get(LANG)}")
 
             async def on_submit(self, interaction: discord.Interaction):
                 await interaction.response.defer(ephemeral=True)
                 response = self.Field.value
-                embed4 = discord.Embed(description=f'Ответ: {response}')
-                embed4.add_field(name=" ", value=f"[Ссылка на сообщение]({jump_url})", inline=False)
-                embed4.set_footer(text=f"{interaction.user.display_name} ответил на фидбек: {message_time.strftime("%d.%m.%Y")} от {author}", icon_url=interaction.user.avatar.url)
+                embed4 = discord.Embed(description=f'{ui_localization.get("feedback").get("feedback_reply").get(LANG)}: {response}')
+                embed4.add_field(name=" ", value=f"[{ui_localization.get("feedback").get("feedback_message_url").get(LANG)}]({jump_url})", inline=False)
+                embed4.set_footer(text=f"{interaction.user.display_name} {ui_localization.get("feedback").get("feedback_reply_msg1").get(LANG)}: {message_time.strftime("%d.%m.%Y")} {ui_localization.get("feedback").get("feedback_reply_msg2").get(LANG)} {author}", icon_url=interaction.user.avatar.url)
                 await channel.send(embed=embed4)
 
 
         class AnswerButton(discord.ui.View):
-            @discord.ui.button(label='ответить', style=discord.ButtonStyle.success)
+            @discord.ui.button(label=f'{ui_localization.get("feedback").get("feedback_reply_button").get(LANG)}', style=discord.ButtonStyle.success)
             async def respond3(self, interaction: discord.Interaction, item):
                 await interaction.response.send_modal(AnswerForm())
            #    await interaction.edit_original_response(view=None)
         send_feedback = await self.client.get_channel(int(FEEDBACK_CHANNEL_ID)).send(embed=embed,
                                                                                 view=AnswerButton(timeout=None))
 
-        await ctx.send('фидбек отправлен (наверное)')
+        await ctx.send(f'{ui_localization.get("feedback").get("feedback_sent").get(LANG)}')
 
     @commands.hybrid_command()
     async def test(self, ctx, *, arg):
@@ -239,7 +241,7 @@ class OtherCog(commands.Cog):
 
     @commands.command()
     async def help(self, ctx, command: str = None, member: discord.Member = None):
-        LANG = "LANG_RU"
+        LANG = f"LANG_{servers_ref.child(str(ctx.guild.id)).child("LANGUAGE").get()}"
         if member == None:
             member = ctx.author
 
@@ -247,33 +249,53 @@ class OtherCog(commands.Cog):
         pfp = member.display_avatar
 
         commands_gamenight = {
-            "gamenight_start": {'LANG_RU': [
+            "gamenight_start": {
+                'LANG_RU': [
                 "```Команда создаёт ивент Геймнайт (только админы могут использовать эту команду). При создании ивента появится сообщение бота с кнопкой, нажав которую можно будет предложить от 1 до 3 игр. Выбор игры в которую захочется поиграть происходит вручную (через какие-нибудь сайты с рулетками)```",
                 None,
                 {"/gamenight_start": "Запускает Геймнайт"},
                 None],
-                                'LANG_EN': 'placeholder'},
+                'LANG_EN': [
+                "```This command creates a Game Night event (only admins can use this command). When creating an event, a bot message will appear with a button that allows you to offer from 1 to 3 games. The game you want to play is selected manually (through some random wheel sites)```",
+                None,
+                {"/gamenight_start": "Starts the Game Night event"},
+                None]
+            },
             "gamenight_list": {
                 'LANG_RU': ["```Посмотреть список предложенных игр для Геймнайта и возможность скачать json-file```",
                             None,
                             {"/gamenight_list": "Показывает список игр, с приложением в виде файла-json"},
                             None],
-                'LANG_EN': 'placeholder'},
+                'LANG_EN': ["```View the list of suggested games for Game Night event and the ability to download a json-file```",
+                            None,
+                            {"/gamenight_list": "Shows a list of games with the application of a json-file."},
+                            None],
+            },
             "gamenight_end": {
                 'LANG_RU': ["```Команда закрывает предложение игр для Геймнайта и сам ивент (админы могут только)```",
                             None,
                             {"/gamenight_end": "Объявляет конец Геймнайта"},
                             None],
-                'LANG_EN': 'placeholder'},
+                'LANG_EN': ["```This command closes the ability of suggesting games for Game Night event and the event itself (only admins can)```",
+                            None,
+                            {"/gamenight_end": "Announces the end of Game Night event"},
+                            None],
+            },
             "gamenight_gamedelete": {'LANG_RU': ["```Удалить СВОЮ игру из списка предложенных игр Геймнайта.```",
                                                  {"[suggestion]": "Предложенная вами игра в списке игр."},
                                                  {
                                                      "/gamenight_gamedelete `suggestion:game1`": "Команда удаляет из списка игр вашу игру `game1`"},
                                                  None],
-                                     'LANG_EN': 'placeholder'}
+                                     'LANG_EN': ["```Remove YOUR suggested game from the list of Game Night event's games.```",
+                                                 {"[suggestion]": "The game you suggested in the list of event's games."},
+                                                 {
+                                                     "/gamenight_gamedelete `suggestion:game1`": "This command removes your suggested game `game1` from the list of event's games"},
+                                                 None]
+                                     }
         }
         commands_rpg = {
-            "profile": {'LANG_RU': [
+            "profile": {
+                'LANG_RU': [
                 "```Команда показывает вам персонажа и открывает ваш инвентарь, где показывается баланс (монетки), вещи (если имеются). При наличии нескольких страниц инвентаря, их можно листать с помощью кнопок```",
                 None,
                 {"!profile": "Показывает вашего персонажа и проверяет свой карман (на наличие денег или предметов)",
@@ -281,63 +303,135 @@ class OtherCog(commands.Cog):
                  "!balance 123456789": "Показывает чужого персонажа и проверяет чужой карман через ID пользователя (на наличие денег или предметов)"},
                 {"[user]": "Упоминание (@user) или же его числовое ID"}
                 ],
-                        'LANG_EN': 'placeholder'},
+                'LANG_EN': [
+                "```This command shows your playable character and opens your inventory (pocket), which shows the balance (coins), items (if you have any). If you have several inventory pages, you can scroll through them using the buttons```",
+                None,
+                {"!profile": "Shows your playable character and checks your pocket (for money or items)",
+                 "!profile @user": "Shows someone else's character and checks someone else's pocket through the user mention (for money or items)",
+                 "!balance 123456789": "Shows someone else's character and checks someone else's pocket through the user ID (for money or items)"},
+                {"[user]": "A mention (@user) or his numeric ID"}
+                ]
+            },
 
-            "fish": {'LANG_RU': ["```Рыбалка симулятор```",
+            "fish": {
+                'LANG_RU': ["```Рыбалка симулятор```",
                                  None,
-                                 {"!fish": "Команда запускает мини-игру рыбалку"},
+                                 {"!fish": "Команда запускает мини-игру рыбалку. Чтобы пройти эту мини-игру, нужно нажимать на кнопки (вверх, вниз, влево, вправо) и дойти до какой-либо рыбы или предмета. Таким образом вы поймаете что-то."},
                                  None],
-                     'LANG_EN': 'placeholder'},
-            "sell": {'LANG_RU': ["```Команда позволяет продать предмет или весь ваш инвентарь```",
+                'LANG_EN': ["```Fishing Simulator```",
+                                 None,
+                                 {"!fish": "This command launches a fishing mini-game. To complete this mini-game, you need to press the buttons (up, down, left, right) and reach any fish or object. This way you will catch something."},
+                                 None]
+            },
+            "sell": {
+                'LANG_RU': ["```Команда позволяет продать предмет или весь ваш инвентарь```",
                                  {"[:emoji:]": "Эмодзи, например 🐟",
                                   "[inventory]": "Слово inventory даст вам продать весь ваш инвентарь"},
                                  {"!sell 🍌": "Команда продаст банан из вашего инвентаря (если он есть). Если у вас много предметов, можно указать `индекс`, например 1 или 2, или же слово `всё`, чтобы продать все предметы данного вида",
                                   "!sell inventory": "Команда продаст весь ваш инвентарь"},
                                  None],
-                     'LANG_EN': 'placeholder'},
-            "leaderboard": {'LANG_RU': [
+                'LANG_EN': ["```This command allows you to sell an item or your entire inventory.```",
+                                 {"[:emoji:]": "Emoji, for example 🐟",
+                                  "[inventory]": "The word inventory itself will let you sell your entire inventory"},
+                                 {"!sell 🍌": "This command will sell a banana from your inventory (if there is one). If you have a lot of items, you can specify an `index`, such as 1 or 2, or the word `all` to sell all items of this type.",
+                                  "!sell inventory": "This command will sell your entire inventory"},
+                                 None]
+            },
+            "leaderboard": {
+                'LANG_RU': [
                 "```Просмотр локальной или глобальной таблицы монет. В выпадающем списке необходимо выбрать уровень просмотра (локальный или глобальный)```",
                 None,
                 {"/leaderboard": "Команда показывает выбранный лидерборд"},
                 None],
-                            'LANG_EN': 'placeholder'},
-            "shop": {'LANG_RU': ["```Просмотр магазина, который обновляется каждые 6 часов.```",
+                'LANG_EN': [
+                "```View the local or global leaderboard of coins. In the drop-down list, select the viewing level (local or global)```",
+                None,
+                {"/leaderboard": "This command shows the selected leaderboard"},
+                None]
+            },
+            "shop": {
+                'LANG_RU': ["```Просмотр магазина, который обновляется каждые 6 часов.```",
                                  None,
                                  {"!shop": "Команда показывает меню магазина"},
                                  None],
-                     'LANG_EN': 'placeholder'},
-            "craft": {'LANG_RU': [
+                'LANG_EN': ["```View the shop, which is updated every 6 hours.```",
+                                 None,
+                                 {"!shop": "This command shows the shop's menu"},
+                                 None]
+            },
+            "craft": {
+                'LANG_RU': [
                 "```Команда создает предмет, если рецепт (те эмодзи, которые вы отправили) окажется верным.```",
                 {"[:emoji1:]": "Первый эмодзи, например 🐟", "[:emoji2:]": "Второй эмодзи, например 🐡"},
                 {"!craft 🐟🐡": "Команда может быть скрафтит что-то из двух предметов!",
                  "!craft 🎩🍌👢": "Команда может быть скрафтит что-то из трёх предметов!"},
-                {"[:emoji3:]": "Третий эмодзи, например 🎩"}],
-                      'LANG_EN': 'placeholder'},
-            "pin": {'LANG_RU': [
+                {"[:emoji3:]": "Третий эмодзи, например 🎩"}
+                ],
+                'LANG_EN': [
+                "```This command creates an item if the recipe (the emojis you sent) turns out to be correct.```",
+                {"[:emoji1:]": "The first emoji, for example 🐟", "[:emoji2:]": "The second emoji, for example 🐡"},
+                {"!craft 🐟🐡": "This command may craft something from two items!",
+                 "!craft 🎩🍌👢": "This command may craft something from three items!"},
+                {"[:emoji3:]": "The third emoji, for example 🎩"}
+                ]
+            },
+            "pin": {
+                'LANG_RU': [
                 "```Команда позволяет пригвоздить предмет, чтобы его невозможно было продать, или наоборот, отгвоздить его, чтобы его можно было продать.```",
                 {"[:emoji:]": "Эмодзи, например 🍌"},
                 {
                     "!pin 🍌": "Команда пригвоздит предмет, чтобы его было нельзя продать. Если у вас много предметов, можно указать `индекс`, например 1 или 2, или же слово `всё`, чтобы пригвоздить все предметы",
                     "!pin 📌🐟": "Команда отгвоздит предмет, чтобы его можно было продать. Если у вас много предметов, можно указать `индекс`, например 1 или 2, или же слово `всё`, чтобы отгвоздить все предметы"},
                 None],
-                    'LANG_EN': 'placeholder'},
-            "info": {'LANG_RU': [
+                'LANG_EN': [
+                "```This command allows you to pin an item so that it cannot be sold, or vice versa, to unpin it so that it can be sold.```",
+                {"[:emoji:]": "Emoji, for example 🍌"},
+                {
+                    "!pin 🍌": "This command will pin the item so that it cannot be sold. If you have a lot of items, you can specify an `index`, such as 1 or 2, or the word `all` to pin all the items.",
+                    "!pin 📌🐟": "The team will unpin the item so that it can be sold. If you have a lot of items, you can specify an `index`, such as 1 or 2, or the word `all` to label all items."},
+                None]
+            },
+            "info": {
+                'LANG_RU': [
                 "```Команда позволяет узнать некоторую информацию о предмете, находящегося в вашем инвентаре. Показывает название предмета, дату получения и краткую информацию.```",
                 {"[:emoji:]": "Эмодзи, например 🐟"},
                 {"!info 🐟": "Команда покажет информацию об этом предмете, если он есть у вас в инвентаре."},
                 None],
-                     'LANG_EN': 'placeholder'},
-            "use": {'LANG_RU': ["```Команда позволяет использовать указанный предмет в вашем инвентаре.```",
+                'LANG_EN': [
+                "```This command allows you to find out some information about an item in your inventory. Shows the name of the item, the date item was received, and brief information.```",
+                {"[:emoji:]": "Emoji, for example 🐟"},
+                {"!info 🐟": "This command will show information about this item if you have it in your inventory."},
+                None]
+            },
+            "use": {
+                'LANG_RU': ["```Команда позволяет использовать указанный предмет в вашем инвентаре.```",
                                 {"[:emoji:]": "Эмодзи, например 👢"},
 
                                 {
                                     "!info 👢": "Команда использует этот предмет и если у него есть применение (не все предметы можно использовать), то что-то произойдёт."},
                                 None],
-                    'LANG_EN': 'placeholder'},
+                'LANG_EN': ["```This command allows you to use the specified item in your inventory..```",
+                                {"[:emoji:]": "Emoji, for example 👢"},
+
+                                {
+                                    "!info 👢": "This command uses this item and if it has a use (some items don't have any usage), then something may happen."},
+                                None]
+            },
+            "location": {
+                'LANG_RU': ["```Сердце РПГ сегмента бота. На данный момент команда позволяет просматривать текущую локацию, разговаривать с нпс, получать квесты от нпс.```",
+                                 None,
+                                 {"/location": "Команда видна только вам, вы можете просмотреть текущую локацию, поговорить с доступными нпс."},
+                                 None],
+                'LANG_EN': ["```The heart of the RPG segment of the bot. Currently, this command allows you to view the current location, talk to NPCs, and receive quests from NPCs.```",
+                                 None,
+                                 {"/location": "This command is visible to you only, you can view the current location, talk to the available NPCs."},
+                                 None]
+            }
         }
         commands_admin = {
-            "cage": {'LANG_RU': [
-                "```Команда позволяет отправить человека в подобие таймаута. Для использования этой команды необходимо настроить в /settings следующие параметры: TIMEOUT_CHANNEL_ID - айди канала, который будет доступен людям с таймаутом, TIMEOUT_ROLE_ID - роль, которая будет даваться людям с таймаутом. Вы сами выставляете ограничения у роли и у канала. По задумке, команда на время отправляет пользователя в специальный канал, чтобы тот подумал о своём поведении (или до тех пор, пока он не почистит N количество бананов, но это опционально). ```",
+            "cage": {
+                'LANG_RU': [
+                "```Команда позволяет отправить человека в подобие таймаута. Для использования этой команды необходимо настроить в /settings следующие параметры: TIMEOUT_CHANNEL_ID - айди канала, который будет доступен людям с таймаутом, TIMEOUT_ROLE_ID - роль, которая будет даваться людям с таймаутом. Вы сами выставляете ограничения у роли и у канала. По задумке, команда на время отправляет пользователя в специальный канал, чтобы тот подумал о своём поведении (или до тех пор, пока он не почистит N количество бананов, но это опционально).```",
                 {"[@юзер]": "Упоминание пользователя",
                  "[s/m/h/d]": "Время, например 50s или 20d или 3h (50 секунд или 20 дней или 3 часа)."},
                 {"!cage member:@dummy#9470 time:5s": "Команда отправит участника @dummy#9470 в таймаут на 5 секунд.",
@@ -345,66 +439,117 @@ class OtherCog(commands.Cog):
                  "!cage member:@dummy#9470 time:5s reason:ну отдохни на водах": "Команда отправит участника @dummy#9470 в таймаут на 5 секунд, также в сообщении будет указана причина отправки в таймаут."},
                 {
                     "[бананы]": "Количество бананов, которое необходимо почистить, чтобы досрочно выбраться из таймаута. Например 50.",
-                    "[причина]": "Текст причины, за которую пользователь отправлен в таймаут (в том числе пользователю будет видно, кто отправил в таймаут)"}],
-                     'LANG_EN': 'placeholder'},
-            "settings": {'LANG_RU': [
-                "```Команда позволяет настроить бота (нужные айди каналов и ролей). Следующие поля можно настроить:\nBOT_CHANNEL_ID - Канал, где бот будет отправлять некоторые сообщения-оповещения (если это необходимо некоторым командам, данный айди пока что используется только в команде /gamenight_start, смотрите help по ней)\nPREFIX - Префикс бота.\nTIMEOUT_CHANNEL_ID - Канал для таймаутов. По задумке (вы можете сделать иначе) в этот канал должна иметь доступ только одна роль, она может туда писать, но не может просматривать остальные каналы вашего сервера (Канал используется в команде /cage, смотрите help по ней).\nTIMEOUT_ROLE_ID - Роль, которая имеет доступ к ранее упомянутому каналу, по сути таймаут-роль (выдаётся пользователям с помощью команды /cage, смотрите help по ней).\nLANGUAGE - Язык, на котором будет отвечать бот. Доступен только `RU` ```",
+                    "[причина]": "Текст причины, за которую пользователь отправлен в таймаут (в том числе пользователю будет видно, кто отправил в таймаут)"
+                }
+                ],
+                'LANG_EN': [
+                "```The command allows you to send a person to a some kind of timeout. To use this command, you need to configure the following parameters in /settings: TIMEOUT_CHANNEL_ID - the ID of the channel that will be available to people with a timeout, TIMEOUT_ROLE_ID - the role that will be given to people with a timeout. You set the limits and permissions for the role and the channel yourself. Ideally, this command temporarily sends the user to a special channel so that user thinks about theirs behavior (or until user peels N quantity of bananas, but this is optional).```",
+                {"[@user]": "User Mention",
+                 "[s/m/h/d]": "Time, for example, 50s or 20d or 3h (50 seconds or 20 days or 3 hours)."},
+                {"!cage member:@dummy#9470 time:5s": "This command will send user @dummy#9470 to a 5-second timeout.",
+                 "!cage member:@dummy#9470 time:3d bananas:50": "This command will send user @dummy#9470 to a 3-day timeout, BUT user can be released early if user peels 50 bananas..",
+                 "!cage member:@dummy#9470 time:5s reason:go chill dude": "This command will send user @dummy#9470 to a timeout for 5 seconds and the reason for the timeout will also be included in the message."},
+                {
+                    "[bananas]": "The number of bananas that need to be peeled in order to get out of the timeout early. For example 50.",
+                    "[reason]": "The reason why the user was timed out (they will also see who timed them out)."
+                }
+                ]
+            },
+            "settings": {
+                'LANG_RU': [
+                "```Команда позволяет настроить бота (нужные айди каналов и ролей). Следующие поля можно настроить:\nBOT_CHANNEL_ID - Канал, где бот будет отправлять некоторые сообщения-оповещения (если это необходимо некоторым командам, данный айди пока что используется только в команде /gamenight_start, смотрите help по ней)\nPREFIX - Префикс бота. Сейчас недоступен.\nTIMEOUT_CHANNEL_ID - Канал для таймаутов. По задумке (вы можете сделать иначе) в этот канал должна иметь доступ только одна роль, она может туда писать, но не может просматривать остальные каналы вашего сервера (Канал используется в команде /cage, смотрите help по ней).\nTIMEOUT_ROLE_ID - Роль, которая имеет доступ к ранее упомянутому каналу, по сути таймаут-роль (выдаётся пользователям с помощью команды /cage, смотрите help по ней).\nLANGUAGE - Язык, на котором будет отвечать бот. Доступен `RU`, `EN` ```",
                 None,
                 {"/settings": "Команда запускает меню настройки."},
                 None],
-                         'LANG_EN': 'placeholder'},
+                'LANG_EN': [
+                "```This command allows you to configure the bot (required channel and role IDs). The following fields can be configured:\nBOT_CHANNEL_ID - The channel where the bot will send certain notification messages (if required by some commands; this ID is currently only used by the `/gamenight_start` command, see its help for more details).\nPREFIX - The bot's command prefix. Currently unavailable\nTIMEOUT_CHANNEL_ID - The channel for timeouts. The idea (you can set it up differently) is that only one specific role should have access to this channel. This role can write in it but cannot view the rest of your server's channels (this channel is used by the `/cage` command, see its help for more details).\nTIMEOUT_ROLE_ID - The role that has access to the aforementioned channel — essentially, the timeout role (assigned to users via the `/cage` command, see its help for more details).\nLANGUAGE - The language the bot will respond in. `RU`, 'EN` are available.```",
+                None,
+                {"/settings": "This command shows the settings menu."},
+                None]},
         }
 
         commands_other = {
-            "feedback": {'LANG_RU': [
+            "feedback": {
+                'LANG_RU': [
                 "```Команда отправляет фидбек о боте (ваши идеи, впечатления и так далее). Создатель бота может ответить на сообщение.```",
                 {"[текст]": "Текст, который отправится создателю бота."},
                 {
                     "!feedback ну короче жду бесплатный бургер": "Команда отправит сообщение 'ну короче жду бесплатный бургер' создателю бота. Он сможет ответить на ваше сообщение."},
                 None],
-                         'LANG_EN': 'placeholder'},
+                'LANG_EN': [
+                "```This command sends feedback about the bot (your ideas, impressions, and so on). The creator of the bot may reply to the message.```",
+                {"[text]": "The text that will be sent to the creator of the bot."},
+                {
+                    "!feedback urm give me a free cheeseburger": "This command will send a message 'urm give me a free cheeseburger' to the creator of the bot. He may reply to your message."},
+                None]
+            },
 
-            "meme": {'LANG_RU': ["```Команда отправляет рандомный мем из коллекции.```",
+            "meme": {
+                'LANG_RU': ["```Команда отправляет рандомный мем из коллекции локальных мемов.```",
                                  None,
                                  {"!meme": "Отправляет рандомный мем из коллекции."},
                                  None],
-                     'LANG_EN': 'placeholder'},
-            "test": {'LANG_RU': ["```Команда повторяет за пользователем всё, что он напишет.```",
+                'LANG_EN': ["```This command sends a random meme from the collection of local memes.```",
+                                 None,
+                                 {"!meme": "Sends a random meme from the collection."},
+                                 None]
+            },
+            "test": {
+                'LANG_RU': ["```Команда повторяет за пользователем всё, что он напишет.```",
                                  {"[сообщение]": "Текст, который вы напишите."},
                                  {"!test привет": "Бот отправит сообщение 'привет'.",
-                                  "/test arg:hello": "Бот отправит сообщение 'hello'."},
+                                  "/test arg:привет": "Бот отправит сообщение 'привет'."},
                                  None],
-                     'LANG_EN': 'placeholder'},
-            "help": {'LANG_RU': ['```Команда, которая рассказывает о назначении команды "помощи"```',
+                'LANG_EN': ["```This command repeats everything the user writes.```",
+                                 {"[message]": "The text that you wrote."},
+                                 {"!test hello": "The bot will send a message 'hello'.",
+                                  "/test arg:hello": "The bot will send a message 'hello'."},
+                                 None]
+            },
+            "help": {
+                'LANG_RU': ['```Команда, которая рассказывает о назначении команды "помощи"```',
                                  None,
                                  {
                                      "!help settings": 'Бот отправит сообщение, в котором содержится подробная информация о команде "settings".'},
-                                 {"[команда]": "Команда, которую вы хотите подробно изучить."}],
-                     'LANG_EN': 'placeholder'}
+                                 {"[команда]": "Команда, которую вы хотите подробно изучить."}
+                            ],
+                'LANG_EN': ['```A command that explains the purpose of the "help" command.```',
+                                 None,
+                                 {
+                                     "!help settings": 'The bot will send a message that contains detailed information about the "settings" command.'},
+                                 {"[command]": "The command you want to be explained in detail."}
+                ]
+            }
         }
 
-        commands_minigames = {"bikeshot": {'LANG_RU': ["```Команда запускает игру `bikeshot`.```",
+        commands_minigames = {
+            "bikeshot":
+                {'LANG_RU': ["```Команда запускает игру `bikeshot`.```",
                                                         None,
                                                        {"!bikeshot": "Команда запускает игру `bikeshot`. Принцип игры прост - Вы играете против Байкера, вам нужно выиграть."},
                                                         None],
-                         'LANG_EN': 'placeholder'},
+                'LANG_EN': ["```This command launches a mini-game `bikeshot`.```",
+                                                        None,
+                                                       {"!bikeshot": "This command starts the mini-game `bikeshot'. The idea of the game is simple - You are playing against a Biker and you need to win."},
+                                                        None]
+            },
 
         }
 
         if command is None:
-            embed = discord.Embed(title=f'Стандартные команды',
+            embed = discord.Embed(title=f'{ui_localization.get("help").get("help_standard_commands").get(LANG)}',
                                   colour=discord.Colour(int('a970ff', 16)))
-            embed.set_author(name=f"димабот ft. {member.guild.name}", icon_url="https://imgur.com/T9qLfHj.png")
+            embed.set_author(name=f"{ui_localization.get("help").get("help_dimabot").get(LANG)} ft. {member.guild.name}", icon_url="https://imgur.com/T9qLfHj.png")
 
-            embed.add_field(name="Геймнайт", value=f"{str("".join([f"`{i}`\n" for i in commands_gamenight.keys()]))}",
+            embed.add_field(name=f"{ui_localization.get("help").get("help_gamenight").get(LANG)}", value=f"{str("".join([f"`{i}`\n" for i in commands_gamenight.keys()]))}",
                             inline=True)
-            embed.add_field(name="Экономика", value=f"{str("".join([f"`{i}`\n" for i in commands_rpg.keys()]))}",
+            embed.add_field(name=f"{ui_localization.get("help").get("help_economy").get(LANG)}", value=f"{str("".join([f"`{i}`\n" for i in commands_rpg.keys()]))}",
                             inline=True)
-            embed.add_field(name="Администрация", value=f"{str("".join([f"`{i}`\n" for i in commands_admin.keys()]))}",
+            embed.add_field(name=f"{ui_localization.get("help").get("help_mod").get(LANG)}", value=f"{str("".join([f"`{i}`\n" for i in commands_admin.keys()]))}",
                             inline=True)
-            embed.add_field(name="Другие", value=f"{str("".join([f"`{i}`\n" for i in commands_other.keys()]))}",
+            embed.add_field(name=f"{ui_localization.get("help").get("help_other").get(LANG)}", value=f"{str("".join([f"`{i}`\n" for i in commands_other.keys()]))}",
                             inline=True)
-            embed.add_field(name="Мини-игры", value=f"{str("".join([f"`{i}`\n" for i in commands_minigames.keys()]))}",
+            embed.add_field(name=f"{ui_localization.get("help").get("help_games").get(LANG)}", value=f"{str("".join([f"`{i}`\n" for i in commands_minigames.keys()]))}",
                             inline=True)
 
             view = Menu()
@@ -419,20 +564,20 @@ class OtherCog(commands.Cog):
                 if new_command in d:
                     embed = discord.Embed(title=f'{command}', description=f"{d[new_command][LANG][0]}")
                     if not (d[new_command][LANG][1] is None):
-                        embed.add_field(name="Следующие параметры НЕОБХОДИМЫ:",
+                        embed.add_field(name=f"{ui_localization.get("help").get("help_params_required").get(LANG)}:",
                                         value=f"{str("".join([f"`{i} -- {j}`\n" for i, j in d[new_command][LANG][1].items()]))}",
                                         inline=False)
                     if not (d[new_command][LANG][3] is None):
-                        embed.add_field(name="Следующие параметры ОПЦИОНАЛЬНЫ:",
+                        embed.add_field(name=f"{ui_localization.get("help").get("help_params_required").get(LANG)}:",
                                         value=f"{str("".join([f"`{i} -- {j}`\n" for i, j in d[new_command][LANG][3].items()]))}",
                                         inline=False)
-                    embed.add_field(name="Пример использования:",
+                    embed.add_field(name=f"{ui_localization.get("help").get("help_usage_example").get(LANG)}:",
                                     value=f"{str("".join([f"{i}\n{j}\n\n" for i, j in d[new_command][LANG][2].items()]))}",
                                     inline=False)
-                    embed.set_author(name=f"димабот помощник")
+                    embed.set_author(name=f"{ui_localization.get("help").get("help_dimabot_helper").get(LANG)}")
                     await ctx.send(embed=embed)
                     return
-            await ctx.send("увы, такой команды нету")
+            await ctx.send(f"{ui_localization.get("help").get("help_no_command").get(LANG)}")
 
 async def setup(client):
     await client.add_cog(OtherCog(client))
