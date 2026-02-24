@@ -1,19 +1,26 @@
 
 import asyncio
 import copy
+import math
 import random
 import re
 import time
+from copy import deepcopy
 
 import discord
+from attr.validators import disabled
 from discord import Interaction
+from discord import app_commands
 
 from discord.ext import commands
 from firebase_admin import db
+from pathlib import Path
+from src.config import inventory_ref, economy_ref, all_items, active_games, maps, fish_available, fish_book, \
+    crafting_dict, \
+    servers_ref, penalty_ref, all_fish, full_items, rarity_distribution, multiplier_distribution, speech_bubble, \
+    rpg_stuff_ref, rpg_quest_items, ui_localization, locations, rpg_lore_quests
 
-from src.config import inventory_ref, economy_ref, items, active_games, maps, fish_available, fish_book, crafting_dict, \
-    servers_ref, penalty_ref
-
+# in_dialogues = list()
 
 class RPGCog(commands.Cog):
     def __init__(self, client):
@@ -54,7 +61,7 @@ class RPGCog(commands.Cog):
             pattern = r'[0-9]'
             new_string = re.sub(pattern, '', item)
 
-            first_way = items.get(item)
+            first_way = all_items.get(item)
             if first_way:
                 inventory_path = f"{user_id}/{cool_item_name}"
                 inventory_ref.child(inventory_path).delete()
@@ -107,13 +114,47 @@ class RPGCog(commands.Cog):
         except asyncio.TimeoutError:
             await ctx.send("ты чет призадумался, попробуй лучше снова")
 
-    @commands.hybrid_command(name="info", with_app_command=True)
-    async def info(self,ctx, *, item: str):
+    # async def id28use(self, interaction: discord.Interaction):
+    #     user_id = interaction.user.id
+    #     lore_data = rpg_stuff_ref.child(str(user_id)).get()
+    #
+    #     if lore_data is None:
+    #         inventory_ref.child(str(user_id)).set({
+    #         "current_quest": None,
+    #         "current_lore": 1
+    #      })
+    #         print("norm")
+    #     else:
+    #         pass
+
+    def quest_1(self):
+        pass
+
+    def universal_func(self, ctx, item: str):
+        LANG = f"LANG_{servers_ref.child(str(ctx.guild.id)).child("LANGUAGE").get()}"
+        pattern = r'[0-9\s]'
+        new_item = re.sub(pattern, '', item)
         user_id = ctx.author.id
         inventory_data = inventory_ref.child(str(user_id)).get()
 
+        cases = {
+            1: {
+
+            }
+        }
+
         if inventory_data is None:
-            await ctx.send('xnj ты информацию ищешь в космосе (пантигон привет)')
+            raise ValueError("Инвентарь пользователя не найден")
+
+        
+    @commands.hybrid_command(name="info", with_app_command=True)
+    async def info(self,ctx, *, item: str):
+        user_id = ctx.author.id
+        LANG = f"LANG_{servers_ref.child(str(ctx.guild.id)).child("LANGUAGE").get()}"
+        inventory_data = inventory_ref.child(str(user_id)).get()
+
+        if inventory_data is None:
+            await ctx.send(f'{ui_localization.get("info").get("Info_No_Inventory").get(LANG)}')
 
         dictionary = {}
         for item_name, quantity in inventory_data.items():
@@ -126,14 +167,20 @@ class RPGCog(commands.Cog):
         pattern = r'[0-9]'
         new_string = re.sub(pattern, '', item)
 
-        multiplier, word, name, description, func, icon, price = items.get(new_string)
+        fullest_items = full_items | rpg_quest_items
+        item_data = fullest_items[new_string]
+        if new_string in all_fish.keys():
+            word = "см" if LANG == "LANG_RU" else f"{ui_localization.get("values").get("cm").get(LANG)}"
+        else:
+            word = "монет" if LANG == "LANG_RU" else f"{ui_localization.get("values").get("coins").get(LANG)}"
+
 
         if len(available_items) >= 1:
 
             if len(available_items) > 1 and item != "inventory":
                 await ctx.send(
-                    f"у тебя несколько '{item}'. выбери конкретный предмет, чтобы посмотреть информацию о нём\n(скопируй тег вместе с эмодзи или значение после двоеточий):\n" +
-                    "\n".join([f"- {name}: {value} {word}" for name, value in available_items.items()])
+                    f"{ui_localization.get("info").get("Info_Several_Items1").get(LANG)} '{item}'. {ui_localization.get("info").get("Info_Several_Items2").get(LANG)}\n{ui_localization.get("info").get("Info_Several_Items3").get(LANG)}:\n" +
+                    "\n".join([f"- {name}: {value.get("price") if not isinstance(value, int) else value} {word}" for name, value in available_items.items()])
                 )
 
                 def check(m):
@@ -148,26 +195,50 @@ class RPGCog(commands.Cog):
                     selected_item = new_string
 
                 for key, value in available_items.items():
-                    if str(value) == selected_item or str(key) == selected_item or len(available_items) == 1:
+                    if str(value.get("price") if not isinstance(value, int) else value) == selected_item or str(key) == selected_item or len(available_items) == 1:
                         cleaned_text = re.sub(r'^[^\d]*', '', key)
 
-                        embed = discord.Embed(title=f'Карман Игрока {ctx.author.display_name}',
+                        temp_str = ""
+                        multiplier_path = inventory_ref.child(str(ctx.author.id)).child(key).child('multiplier')
+                        multiplier_price = multiplier_path.get()
+
+                        for _ in multiplier_distribution.keys():
+                            if multiplier_price is not None:
+                                if eval(_.replace("value", str(multiplier_price))):
+                                    temp_str += multiplier_distribution.get(_)
+                        if temp_str == "":
+                            temp_str = "🌞"
+
+
+
+
+                        moon = temp_str
+                        rarity = inventory_ref.child(str(ctx.author.id)).child(key).child('rarity').get()
+
+                        if rarity is None:
+                            rarity = 0
+                        embed = discord.Embed(title=f'{ui_localization.get("profile").get("Profile_Title").get(LANG)} {ctx.author.display_name}',
                                               colour=discord.Colour(int('5BC1FF', 16)))
                         embed.add_field(name=new_string,
-                                        value=f"{name}, предмет получен <t:{str(int(cleaned_text) // 1000)}:F>")
-                        embed.add_field(name="Описание:", value=description)
+                                        value=f"{item_data["item_name"].get(LANG)}, {ui_localization.get("info").get("Info_Item_Obtained").get(LANG)} <t:{str(int(cleaned_text) // 1000)}:F>", inline=False)
+                        embed.add_field(name=f"{ui_localization.get("shop").get("Description_Label").get(LANG)}:", value=f'```{item_data["description"].get(LANG)}```', inline=False)
+
+                        if multiplier_price is not None:
+                            embed.add_field(name=f"{ui_localization.get("info").get("Info_Moon_Blessing").get(LANG)}:", value=moon, inline=False)
+                        embed.add_field(name=f"{ui_localization.get("info").get("Info_Rarity").get(LANG)}:", value=f"{rarity_distribution.get(int(rarity)).get(LANG)} {"⭐"*rarity if rarity is not None else ""}", inline=False)
                         await ctx.send(embed=embed)
 
 
 
             except asyncio.TimeoutError:
-                await ctx.send("ты чет призадумался, попробуй лучше снова")
+                await ctx.send(f"{ui_localization.get("info").get("AFK_Warn").get(LANG)}")
         else:
-            await ctx.send(f"хрень, такого предмета нету")
+            await ctx.send(f"{ui_localization.get("info").get("WRONG_ITEM_Warn").get(LANG)}")
 
     @commands.command()
     @commands.cooldown(1, 1, commands.BucketType.user)
     async def pin(self, ctx, *, item: str):
+        LANG = f"LANG_{servers_ref.child(str(ctx.guild.id)).child("LANGUAGE").get()}"
         pattern = r'[0-9\s]'
         new_item = re.sub(pattern, '', item)
         user_id = ctx.author.id
@@ -195,7 +266,15 @@ class RPGCog(commands.Cog):
                 what_to_pin[item_name] = quantity
 
         new_string = re.sub(pattern, '', new_item)
-        multiplier, word, name, way_to_sell, func, icon, price = items.get(new_string.replace('📌', ''))
+
+        fullest_items = full_items | rpg_quest_items
+        item_data = fullest_items[new_string.replace('📌', '')]
+
+        if new_string in all_fish.keys():
+            word = "см" if LANG == "LANG_RU" else f"{ui_localization.get("values").get("cm").get(LANG)}"
+        else:
+            word = "монет" if LANG == "LANG_RU" else f"{ui_localization.get("values").get("coins").get(LANG)}"
+
         if len(what_to_pin) >= 1:
 
             if len(what_to_pin) > 1 and item != "inventory":
@@ -204,21 +283,29 @@ class RPGCog(commands.Cog):
                 for index, (name, value) in enumerate(what_to_pin.items()):
                     items_to_pin.append((index, name, value))
 
+
                 await ctx.send(
                     f"выбери, какой из нескольких '{item}' пригвоздить/отгвоздить (укажи индекс):\n" +
-                    "\n".join([f"{index + 1}. {new_string}: {value} {word}" for index, name, value in items_to_pin])
+                    "\n".join([f"{index + 1}. {new_string}: {value.get("price") if not isinstance(value, int) else value} {word}" for index, name, value in items_to_pin])
                 )
 
                 def check(m):
                     return m.author == ctx.author and m.content.isdigit() and 0 <= int(m.content) - 1 < len(
-                        items_to_pin) or m.content == "всё"
+                        items_to_pin) or m.content == "всё" or m.content == "all"
 
             try:
-                if len(what_to_pin) > 1 and item != "inventory" and item != "всё":
+                if len(what_to_pin) > 1 and item != "inventory" and item != "всё" and item != "all":
                     response = await self.client.wait_for('message', check=check, timeout=30)
+
                     if response.content != 'inventory' and response.content != 'всё':
                         index, name, value = items_to_pin[int(response.content) - 1]
-                        await ctx.send(f"окей, ща я подумаю чё делать с... {index + 1}. {item}: {value} {word}")
+
+                        try:
+                            price = value.get("price") if value.get("price") is not None else value
+                        except:
+                            price = value
+
+                        await ctx.send(f"окей, ща я подумаю чё делать с... {index + 1}. {item}: {price} {word}")
                         selected_item = int(response.content) - 1
 
                     else:
@@ -228,7 +315,13 @@ class RPGCog(commands.Cog):
 
                 funny_copy_what_to_pin = copy.deepcopy(what_to_pin)
 
+
+
                 for index, (name, value) in enumerate(what_to_pin.items()):
+                    try:
+                        price = value.get("price") if value.get("price") is not None else value
+                    except:
+                        price = value
                     if selected_item == int(index) or selected_item == "всё":
                         try:
                             pinorunpin = '📌' in name
@@ -242,13 +335,13 @@ class RPGCog(commands.Cog):
                                     inventory_ref.child(str(ctx.author.id)).update({
                                         f'📌{name}': value
                                     })
-                                    await ctx.send(f"вы пригвоздили {new_string}: {value} {word}")
+                                    await ctx.send(f"вы пригвоздили {new_string}: {price} {word}")
                                 else:
                                     inventory_ref.child(inventory_path).delete()
                                     inventory_ref.child(str(ctx.author.id)).update({
                                         f'{name.replace('📌', '').strip()}': value
                                     })
-                                    await ctx.send(f"вы отгвоздили {new_string}: {value} {word}")
+                                    await ctx.send(f"вы отгвоздили {new_string}: {price} {word}")
 
                             if selected_item != "всё":
                                 break
@@ -268,6 +361,7 @@ class RPGCog(commands.Cog):
     @commands.command()
     @commands.cooldown(3, 1, commands.BucketType.user)
     async def use(self, ctx, *, item: str):
+        LANG = f"LANG_{servers_ref.child(str(ctx.guild.id)).child("LANGUAGE").get()}"
         user_id = ctx.author.id
         inventory_data = inventory_ref.child(str(user_id)).get()
         if inventory_data is None:
@@ -285,7 +379,15 @@ class RPGCog(commands.Cog):
 
         pattern = r'[0-9]'
         new_string = re.sub(pattern, '', item)
-        multiplier, word, name, description, func, icon, price = items.get(new_string)
+
+        fullest_items = full_items | rpg_quest_items
+
+        item_name, multiplier_price, description, usage, shop_price = fullest_items.get(new_string)
+
+        if new_string in all_fish.keys():
+            word = "см" if LANG == "LANG_RU" else f"{ui_localization.get("values").get("cm").get(LANG)}"
+        else:
+            word = "монет" if LANG == "LANG_RU" else f"{ui_localization.get("values").get("coins").get(LANG)}"
 
         if len(available_items) == 0:
             await ctx.send(f"хрень, такого предмета нету")
@@ -310,11 +412,13 @@ class RPGCog(commands.Cog):
             selected_item = item
 
 
-        if func is not None:
+        if usage is not None:
             if new_string == '👢':
                 await self.id0use(ctx, selected_item)
             elif new_string == '⛵':
                 await self.id26use(ctx)
+            elif new_string == '🫖':
+                await self.id28use(ctx)
             else:
                 await ctx.send("Этот предмет не имеет никакого применения...")
 
@@ -427,7 +531,8 @@ class RPGCog(commands.Cog):
 
                 no_fish_rod, level1_fish_rod = fish_available.get(self.word)
 
-                fish_emojis = no_fish_rod
+                fish_emojis = deepcopy(no_fish_rod)
+
 
                 if inventory_data is None:
                     pass
@@ -437,8 +542,14 @@ class RPGCog(commands.Cog):
                         new_string = re.sub(r'[0-9]', '', key)
                         fish_rod_list.append(new_string)
 
+
                     if ('🎣' in fish_rod_list) or ('📌🎣' in fish_rod_list):
-                        fish_emojis = level1_fish_rod
+                        fish_emojis = deepcopy(level1_fish_rod)
+
+                        if ('🫖' in fish_rod_list) or ('📌🫖' in fish_rod_list):
+                            fish_emojis.remove('🫖')
+                    if ('🫖' in fish_rod_list) or ('📌🫖' in fish_rod_list):
+                        fish_emojis.remove('🫖')
 
                 # fish_emojis = ['👢']
 
@@ -501,20 +612,37 @@ class RPGCog(commands.Cog):
                         inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
                         if inventory_data is None:
+                            item_key = what_to_change + str(int(time.time() * 1000))
                             if typeof == "fish":
-                                inventory_ref.child(str(ctx.author.id)).set(
-                                    {what_to_change + str(int(time.time() * 1000)): self.cm * multiplier})
+                                inventory_ref.child(str(ctx.author.id)).child(item_key).set({
+                                    "price": round(self.cm * multiplier(), 3),
+                                    "multiplier": round(multiplier(), 9),
+                                    "rarity": math.floor(round(multiplier(), 9))
+                                })
+                                # inventory_ref.child(str(ctx.author.id)).set(
+                                #     {what_to_change + str(int(time.time() * 1000)): self.cm * multiplier})
                             else:
-                                inventory_ref.child(str(ctx.author.id)).set(
-                                    {what_to_change + str(int(time.time() * 1000)): 1 * multiplier})
+                                inventory_ref.child(str(ctx.author.id)).child(item_key).set({
+                                    "price": round(1 * multiplier(), 3),
+                                    "multiplier": round(multiplier(), 9),
+                                    "rarity": math.floor(round(multiplier(), 9))
+                                })
+                                # inventory_ref.child(str(ctx.author.id)).set(
+                                #     {what_to_change + str(int(time.time() * 1000)): 1 * multiplier})
                         else:
                             if typeof == "fish":
-                                current_fish = inventory_ref.child(str(ctx.author.id)).update({
-                                    what_to_change + str(int(time.time() * 1000)): self.cm * multiplier
+                                item_key = what_to_change + str(int(time.time() * 1000))
+                                inventory_ref.child(str(ctx.author.id)).child(item_key).update({
+                                    "price": round(self.cm * multiplier(), 3),
+                                    "multiplier": round(multiplier(), 9),
+                                    "rarity": math.floor(round(multiplier(), 9))
                                 })
                             else:
-                                current_fish = inventory_ref.child(str(ctx.author.id)).update({
-                                    what_to_change + str(int(time.time() * 1000)): 1 * multiplier
+                                item_key = what_to_change + str(int(time.time() * 1000))
+                                inventory_ref.child(str(ctx.author.id)).child(item_key).set({
+                                    "price": round(1 * multiplier(), 3),
+                                    "multiplier": round(multiplier(), 9),
+                                    "rarity": math.floor(round(multiplier(), 9))
                                 })
 
                         game_run = False
@@ -615,12 +743,13 @@ class RPGCog(commands.Cog):
 
     @commands.hybrid_command()
     async def sell(self, ctx, item: str):
+        LANG = f"LANG_{servers_ref.child(str(ctx.guild.id)).child("LANGUAGE").get()}"
         """Команда для продажи вещи/вещей/всего инвентаря"""
         user_id = ctx.author.id
         inventory_data = inventory_ref.child(str(user_id)).get()
 
         if inventory_data is None:
-            await ctx.send('тебе нечего продать на файерградском рынке')
+            await ctx.send(f'{ui_localization.get("sell").get("Sell_No_Inventory").get(LANG)}')
 
         dictionary = {}
         for item_name, quantity in inventory_data.items():
@@ -645,27 +774,38 @@ class RPGCog(commands.Cog):
         if len(what_to_sell) >= 1:
 
             if len(what_to_sell) > 1 and item != "inventory":
-                multiplier, word, name, way_to_sell, func, icon, price = items.get(new_string)
+                if new_string in all_fish.keys():
+                    word = "см" if LANG == "LANG_RU" else f"{ui_localization.get("values").get("cm").get(LANG)}"
+                else:
+                    word = "монет" if LANG == "LANG_RU" else f"{ui_localization.get("values").get("coins").get(LANG)}"
 
                 await ctx.send(
-                    f"ничего себе, у тебя несколько '{item}'. выбери чё продать из этого (укажи индекс):\n" +
+                    f"{ui_localization.get("sell").get("Sell_Several_Item1").get(LANG)} '{item}'. {ui_localization.get("sell").get("Sell_Several_Item2").get(LANG)}:\n" +
                    # "\n".join([f"- {new_string}: {value} {word}" for name, value in what_to_sell.items()])
-                "\n".join([f"{index + 1}. {new_string}: {value} {word}" for index, name, value in definitely_to_sell])
+                "\n".join([f"{index + 1}. {new_string}: {value.get("price") if not isinstance(value, int) else value} {word}" for index, name, value in definitely_to_sell])
                 )
 
-                msg = await ctx.send('или напиши "всё" если хочешь продать всё сразу')
+                msg = await ctx.send(f'{ui_localization.get("sell").get("Sell_Several_Item3").get(LANG)}')
 
                 def check(m):
                     return m.author == ctx.author and m.content.isdigit() and 0 <= int(m.content) - 1 < len(
-                        definitely_to_sell) or m.content == "всё"
+                        definitely_to_sell) or m.content == "всё" or m.content == "all"
 
             try:
-                if len(what_to_sell) > 1 and item != "inventory" and item != "всё":
+                if new_string in all_fish.keys():
+                    word = "см" if LANG == "LANG_RU" else f"{ui_localization.get("values").get("cm").get(LANG)}"
+                else:
+                    word = "монет" if LANG == "LANG_RU" else f"{ui_localization.get("values").get("coins").get(LANG)}"
+
+                if len(what_to_sell) > 1 and item != "inventory" and item != "всё" and item != "all":
                     response = await self.client.wait_for('message', check=check, timeout=30)
 
-                    if response.content != "всё":
+                    if response.content != "всё" and response.content != "all":
                         index, name, value = definitely_to_sell[int(response.content) - 1]
-                        await ctx.send(f"окей, ща продадим {index + 1}. {item}: {value} {word}")
+                        if isinstance(value, int):
+                            await ctx.send(f"окей, ща продадим {index + 1}. {item}: {value} {word}")
+                        else:
+                            await ctx.send(f"{ui_localization.get("sell").get("Sell_Start").get(LANG)} {index + 1}. {item}: {value.get("price")} {word}")
                         selected_item = int(response.content) - 1
                     else:
                         selected_item = "всё"
@@ -687,13 +827,10 @@ class RPGCog(commands.Cog):
                                 user_economy_ref.set({"coins": 0})
 
                             if (new_string in key) or (new_string == 'inventory'):
-                                if new_string == 'inventory':
-                                    multiplier, word, name, way_to_sell, func, icon, price = items.get(
-                                        re.sub(pattern, '', key))
+                                if not isinstance(value, int):
+                                    sell_price = int(int(value.get("price")) * value.get("multiplier") * random.random())
                                 else:
-                                    multiplier, word, name, way_to_sell, func, icon, price = items.get(new_string)
-
-                                sell_price = int(value * multiplier)
+                                    sell_price = int(value * random.uniform(1, 2))
                                 current_coins = user_data.get("coins", 0)
                                 user_economy_ref.update({"coins": current_coins + sell_price})
 
@@ -702,30 +839,30 @@ class RPGCog(commands.Cog):
 
                                     cool_string = str(re.sub(pattern, '', key))
 
-                                    await ctx.send(f"на файерградском рынке купили {cool_string} за {sell_price} монет")
+                                    await ctx.send(f"{ui_localization.get("sell").get("Sell_Phrase1").get(LANG)} {cool_string} {ui_localization.get("sell").get("Sell_Phrase2").get(LANG)} {sell_price} {ui_localization.get("values").get("coin").get(LANG)}")
                                 else:
-                                    await ctx.send(f"на файерградском рынке купили {new_string} за {sell_price} монет")
+                                    await ctx.send(f"{ui_localization.get("sell").get("Sell_Phrase1").get(LANG)} {new_string} {ui_localization.get("sell").get("Sell_Phrase2").get(LANG)} {sell_price} {ui_localization.get("values").get("coin").get(LANG)}")
 
                             if selected_item != "всё":
                                 break
                             elif len(funny_copy_what_to_sell) == 0:
                                 break
                         except Exception as e:
-                            await ctx.send(f"запор чето не получилось, ошибка {e}")
+                            await ctx.send(f"{ui_localization.get("sell").get("Sell_Error").get(LANG)} {e}")
                     else:
                         print("говно переделывай")
 
                 # inventory_ref.child(str(user_id)).child(item)
             except asyncio.TimeoutError:
-                await ctx.send("ты чет призадумался, попробуй лучше снова")
+                await ctx.send(f"{ui_localization.get("info").get("AFK_Warn").get(LANG)}")
         else:
-            await ctx.send(f"хрень, такого предмета нету")
+            await ctx.send(f"{ui_localization.get("info").get("WRONG_ITEM_Warn").get(LANG)}")
 
     @commands.command()
     @commands.cooldown(1, 3, commands.BucketType.user)
     async def craft(self, ctx, *, emoji):
         """Команда для крафта различных предметов"""
-
+        LANG = f"LANG_{servers_ref.child(str(ctx.guild.id)).child("LANGUAGE").get()}"
         ingredients = {
             emoji.strip()
             for emoji in emoji.split()
@@ -733,10 +870,16 @@ class RPGCog(commands.Cog):
         }
 
         found_recipe = None
+        icon = None
         for key in crafting_dict:
             if ingredients == key:
                 found_recipe = crafting_dict.get(key)
+                for i in full_items.keys():
+                    if str(full_items.get(i).get('item_name').get(LANG)) == str(
+                            crafting_dict.get(key).get('item_name').get(LANG)):
+                        icon = i
                 break
+
         inventory_data = inventory_ref.child(str(ctx.author.id)).get()
 
         if inventory_data:
@@ -760,46 +903,65 @@ class RPGCog(commands.Cog):
                             inventory_ref.child(inventory_path).delete()
                             break
 
-                if found_recipe:
-                    new_item = inventory_ref.child(str(ctx.author.id)).update(
-                        {found_recipe[5] + str(int(time.time() * 1000)): int(
-                            int(int(found_recipe[6]) * random.random()) * int(found_recipe[0]))})
-                    await ctx.send(f"ура, вы скрафтили {found_recipe[5]}")
-                else:
-                    new_item = inventory_ref.child(str(ctx.author.id)).update(
-                        {'💩' + str(int(time.time() * 1000)): int(1)})
-                    await ctx.send(f"ты намудрил с рецептом, и скрафтил {'💩'}.")
-            else:
 
-                # new_item = inventory_ref.child(str(ctx.author.id)).update(
-                #    {'💩' + str(int(time.time() * 1000)): int(1)})
-                if len(items_you_used) == 0:
-                    await ctx.send(f'ну у тебя каких-то вещей нету в инвентаре')
+
+                if found_recipe:
+                    f = lambda: 1 if random.random() > 0.65 else 0
+                    total = 0
+                    for i in range(8):
+                        total += f()
+
+                    multiplier_price = full_items.get(icon)['multiplier_price']()
+                    new_item = inventory_ref.child(str(ctx.author.id)).update(
+                        {icon + str(int(time.time() * 1000)): {
+                            "multiplier": multiplier_price,
+                            "price": round(int(full_items.get(icon)['shop_price'] + math.floor(multiplier_price)) * random.random(), 5),
+                            "rarity": total
+                        }})
+
+                    await ctx.send(f"{ui_localization.get("craft").get("craft_success").get(LANG)} {icon}")
                 else:
-                    await ctx.send(f"у вас не получилось скрафтить предмет.")
+                    g = lambda: 1 if random.random() > 0.85 else 0
+                    total = 0
+                    for i in range(9):
+                        total += g()
+
+                    new_item = inventory_ref.child(str(ctx.author.id)).update(
+                        {'💩' + str(int(time.time() * 1000)): {
+                            "multiplier": round((random.random() + 1), 9),
+                            "price": int(1),
+                            "rarity": total
+                        }})
+                    await ctx.send(f"{ui_localization.get("craft").get("craft_fail1").get(LANG)} {'💩'}.")
+            else:
+                if len(items_you_used) == 0:
+                    await ctx.send(f'{ui_localization.get("craft").get("craft_insufficient_items").get(LANG)}')
+                else:
+                    await ctx.send(f"{ui_localization.get("craft").get("craft_fail2").get(LANG)}")
                 for used_item in items_you_used:
                     if used_item in ingredients:
                         if len(ingredients) == 3:
                             await ctx.send(
-                                f"возможно, этот предмет используется в крафте: {str(used_item)} + ??? + ???")
+                                f"{ui_localization.get("craft").get("craft_possible_usage").get(LANG)}: {str(used_item)} + ??? + ???")
                         else:
-                            await ctx.send(f"возможно, этот предмет используется в крафте: {str(used_item)} + ???")
+                            await ctx.send(f"{ui_localization.get("craft").get("craft_possible_usage").get(LANG)}: {str(used_item)} + ???")
 
 
         else:
-            await ctx.send("ты че как бомжик аид, беги собирать вещи")
+            await ctx.send(f"{ui_localization.get("craft").get("craft_no_inventory").get(LANG)}")
 
     @commands.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
-    async def почистить(self, ctx, emoji):
+    async def peel(self, ctx, emoji):
+        LANG = f"LANG_{servers_ref.child(str(ctx.guild.id)).child("LANGUAGE").get()}"
         try:
             timeout_role_id = servers_ref.child(str(ctx.guild.id)).get().get("TIMEOUT_ROLE_ID")
         except:
-            await ctx.send("увы даже такой роли нету... пусть админ напишет `/settings` и настроит TIMEOUT_ROLE_ID")
+            await ctx.send(f"{ui_localization.get("peel").get("peel_no_timeout_role").get(LANG)}")
             return
 
         if not timeout_role_id or not any(role.id == int(timeout_role_id) for role in ctx.author.roles):
-            await ctx.send("ты норм, иди отдыхай")
+            await ctx.send(f"{ui_localization.get("peel").get("peel_user_not_in_cage").get(LANG)}")
             return
 
         inventory_data = economy_ref.get()
@@ -817,19 +979,29 @@ class RPGCog(commands.Cog):
         if current_penalty:
             if cool_list:
                 if emoji == "🍌":
+                    shop_price = full_items.get(emoji).get('shop_price')
+                    base_price = round(int(shop_price) * random.random() * random.random(), 5)
+                    multiplier_price = full_items.get(emoji)['multiplier_price']()
                     user_data = inventory_ref.child(user_id).get()
                     if user_data is None:
-                        inventory_ref.child(user_id).set({'🍌' + str(int(time.time() * 1000)): 1})
+                        inventory_ref.child(user_id).set({'🍌' + str(int(time.time() * 1000)): {
+                            "price": base_price,
+                            "multiplier": multiplier_price,
+                            "rarity": math.floor(multiplier_price)
+                        }})
                     else:
                         new_banana = inventory_ref.child(user_id).update({
-                            '🍌' + str(int(time.time() * 1000)): 1
-                        })
+                            '🍌' + str(int(time.time() * 1000)): {
+                            "price": base_price,
+                            "multiplier": multiplier_price,
+                            "rarity": math.floor(multiplier_price)
+                        }})
 
                     if current_penalty > 0:
                         new_penalty = max(0, current_penalty - 1)
                         penalty_ref.child(str(ctx.author.id)).update({"item": new_penalty})
 
-                        await ctx.reply(f"вы почистили 🍌, осталось {new_penalty}")
+                        await ctx.reply(f"{ui_localization.get("peel").get("peel_quantity_left").get(LANG)} {new_penalty}")
 
                         if new_penalty == 0:
                             guild = ctx.guild
@@ -843,14 +1015,15 @@ class RPGCog(commands.Cog):
                                 if target_role in member.roles:
                                     await member.remove_roles(target_role)
                                     penalty_ref.child(str(ctx.author.id)).delete()
-                                    await ctx.send(f"ёмаё, {member.mention} выпустили из обезяника")
+                                    await ctx.send(f"{ui_localization.get("peel").get("peel_escape1").get(LANG)}, {member.mention} {ui_localization.get("peel").get("peel_escape2").get(LANG)}")
         else:
-            await ctx.reply("да нельзя щас")
+            await ctx.reply(f"{ui_localization.get("peel").get("peel_double_cage").get(LANG)}")
 
     @commands.command()
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def profile(self, ctx, member: discord.Member = None):
         """Команда для открытия своего баланса и инвентаря"""
+        LANG = f"LANG_{servers_ref.child(str(ctx.guild.id)).child("LANGUAGE").get()}"
         user_data = (member and economy_ref.child(str(member.id)).get()) or economy_ref.child(str(ctx.author.id)).get()
         user_name = (member and member.display_name) or ctx.author.display_name
         inventory_data = (member and inventory_ref.child(str(member.id)).get()) or inventory_ref.child(
@@ -876,22 +1049,22 @@ class RPGCog(commands.Cog):
         character = user_data['player']
         health = user_data['health']
 
-        character_embed = discord.Embed(title=f"Профиль Игрока {user_name}", colour=discord.Colour(int('5BC1FF', 16)))
+        character_embed = discord.Embed(title=f"{ui_localization.get("profile").get("Profile_Title").get(LANG)} {user_name}", colour=discord.Colour(int('5BC1FF', 16)))
         character_embed.add_field(
             name=f"⬛⬛{character[4] if len(character) > 4 else "⬛"}⬛⬛\n"
                  f"⬛⬛{character[0]}⬛⬛\n"
                  f"⬛{character[2]}{character[1]}{character[2]}️⬛\n"
                  f"⬛{character[5] if len(character) > 4 else "⬛"}{character[3]}{character[4] if len(character) > 4 else "⬛"}⬛\n"
                  f"⬛⬛{character[6] if len(character) > 4 else "⬛"}⬛⬛\n",
-            value=f"HP: {health}❤"
+            value=f"HP: {"❤" * int(health)}"
         )
 
         await ctx.send(embed=character_embed)
 
         def balance_sort(page: int, per_page: int = 10):
 
-            embed = discord.Embed(title=f'Карман Игрока {user_name}', colour=discord.Colour(int('5BC1FF', 16)))
-            embed.add_field(name='Монетки', value=coins)
+            embed = discord.Embed(title=f'{ui_localization.get("profile").get("Profile_Pocket").get(LANG)} {user_name}', colour=discord.Colour(int('5BC1FF', 16)))
+            embed.add_field(name=f'{ui_localization.get("profile").get("Profile_Currency").get(LANG)}', value=coins)
 
             start = (page - 1) * per_page
             end = start + per_page
@@ -904,20 +1077,28 @@ class RPGCog(commands.Cog):
             balance_page = dictlist[start:end]
             pattern = r'[0-9]'
 
-            for i, (item_name, quantity) in enumerate(balance_page, start=start + 1):
+            fullest_items = full_items | rpg_quest_items
+
+            for i, (item_name, data) in enumerate(balance_page, start=start + 1):
                 new_string = re.sub(pattern, '', item_name)
-                if new_string.replace('📌', '') in items:
-                    multiplier, word, name, way_to_sell, func, icon, price = items.get(
-                        new_string.replace('📌', '').strip())
-                    embed.add_field(name=str(new_string), value=f'{quantity} {word}')
+                if new_string.replace('📌', '') in fullest_items:
+                    item_name, multiplier_price, description, usage, shop_price = (fullest_items
+                    .get(
+                        new_string.replace('📌', '').strip()))
+
+                    if new_string in all_fish.keys():
+                        word = "см" if LANG == "LANG_RU" else f"{ui_localization.get("values").get("cm").get(LANG)}"
+                    else:
+                        word = "монет" if LANG == "LANG_RU" else f"{ui_localization.get("values").get("coins").get(LANG)}"
+                    embed.add_field(name=str(new_string), value=f'{data.get("price") if not isinstance(data, int) else data} {word}')
 
             if not (inventory_data == {}):
                 embed.set_footer(
-                    text=f"страница {page}/{(len(inventory_data.items()) + per_page - 1) // per_page}"
+                    text=f"{ui_localization.get("profile").get("Profile_Page").get(LANG)} {page}/{(len(inventory_data.items()) + per_page - 1) // per_page}"
                 )
             else:
                 embed.set_footer(
-                    text=f"страница {page}/1"
+                    text=f"{ui_localization.get("profile").get("Profile_Page").get(LANG)} {page}/1"
                 )
             return embed
 
@@ -933,14 +1114,14 @@ class RPGCog(commands.Cog):
             max_pages = (len(inventory_data.items()) + per_page - 1) // per_page
 
             if max_pages > 1:
-                @discord.ui.button(label="Предыдущая страница", style=discord.ButtonStyle.primary)
+                @discord.ui.button(label=f"{ui_localization.get("profile").get("Profile_Button_Previous").get(LANG)}", style=discord.ButtonStyle.primary)
                 async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
                     nonlocal current_page
                     if current_page > 1:
                         current_page -= 1
                         await interaction.response.edit_message(embed=balance_sort(current_page, per_page), view=self)
 
-                @discord.ui.button(label="Следующая страница", style=discord.ButtonStyle.primary)
+                @discord.ui.button(label=f"{ui_localization.get("profile").get("Profile_Button_Next").get(LANG)}", style=discord.ButtonStyle.primary)
                 async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
                     nonlocal current_page
                     max_pages = (len(inventory_data.items()) + per_page - 1) // per_page
@@ -950,6 +1131,217 @@ class RPGCog(commands.Cog):
 
         await ctx.send(embed=embed, view=BalanceView())
 
+    @app_commands.command(name="location", description="Показывает на какой локации ты находишься и с чем можешь взаимодействовать.")
+    async def location(self, interaction: discord.Interaction):
+        user_id = interaction.user.id
+        lore_data = rpg_stuff_ref.child(str(user_id)).get()
+        LANG = f"LANG_{servers_ref.child(str(interaction.guild_id)).child("LANGUAGE").get()}"
 
+        # if user_id in in_dialogues:
+        #     await interaction.response.send_message(f"ты уже смешарик, подожди 1,5 минуты перед началом нового диалога", ephemeral=True)
+        #     return
+        # else:
+        #     in_dialogues.append(user_id)
+
+        if lore_data is None:
+            rpg_stuff_ref.child(str(user_id)).set({
+            "current_quest": "None",
+            "current_lore": "None",
+            "location": "1"
+         })
+
+        try:
+            current_quest = int(lore_data.get("current_quest")) if lore_data else None
+        except:
+            current_quest = lore_data.get("current_quest") if lore_data else None
+
+        LOCATION = int(lore_data.get("location")) if lore_data else 1
+
+        class DialogueView(discord.ui.View):
+            def __init__(self, npc_emoji, location, userid):
+                super().__init__(timeout=90)
+
+                self.userid = userid
+                self.npc_emoji = npc_emoji
+                self.quest = current_quest
+                self.location = location
+                self.user_inventory = inventory_ref.child(str(user_id)).get()
+
+
+                requirements_str = (rpg_lore_quests.get(npc_emoji).get(location).get(self.quest).get("requirements") if self.quest is not None else 1)
+
+                quest_context = {
+                    1: {
+                        're': re,
+                        'str': str,
+                        'sum': sum,
+                        'inventory_ref': inventory_ref,
+                        'fish_book': fish_book,
+                        'user_id': self.userid
+                    }
+                }
+
+                context = quest_context.get(self.quest, {}) if self.quest is not None else {}
+                self.requirements = eval(requirements_str, context) if self.quest is not None else 1
+
+                self.dialogue = rpg_lore_quests.get(npc_emoji).get(location).get(self.quest).get("lines").get(LANG) if self.requirements else rpg_lore_quests.get(npc_emoji).get(location).get(self.quest).get("meet_no_requirements").get(LANG)
+                self.current_index = -1
+                self.update_buttons()
+
+            def update_buttons(self):
+                self.clear_items()
+
+                back_btn = discord.ui.Button(
+                    emoji="👈",
+                    style=discord.ButtonStyle.secondary,
+                    disabled=self.current_index == -1
+                )
+                back_btn.callback = self.go_back
+
+                next_btn = discord.ui.Button(
+                    emoji='👉',
+                    style=discord.ButtonStyle.secondary,
+                    disabled=self.current_index >= len(self.dialogue) - 1
+                )
+                next_btn.callback = self.go_next
+
+                end_btn = discord.ui.Button(
+                    emoji='🖐️',
+                    style=discord.ButtonStyle.primary
+                )
+
+                end_btn.callback = self.end_dialogue
+
+
+                self.add_item(back_btn)
+                self.add_item(next_btn)
+
+                if self.current_index >= len(self.dialogue) - 1 and self.requirements:
+                    self.add_item(end_btn)
+
+
+            def get_current_message(self):
+                if self.current_index < len(self.dialogue):
+                    return self.dialogue[self.current_index]
+
+            async def go_back(self, interaction: discord.Interaction):
+                if interaction.user.id != self.userid:
+                    return await interaction.response.send_message("🗣️❌", ephemeral=True)
+
+                if self.current_index > 0:
+                    self.current_index -= 1
+                    self.update_buttons()
+
+                dialogue_embed = discord.Embed(
+                    title="🗣️",
+                    description=f"{speech_bubble(self.get_current_message(), self.npc_emoji)}"
+                )
+
+                await interaction.response.edit_message(embed=dialogue_embed, view=self)
+
+            async def go_next(self, interaction: discord.Interaction):
+                if interaction.user.id != self.userid:
+                    return await interaction.response.send_message("🗣️❌", ephemeral=True)
+
+                if self.current_index < len(self.dialogue) - 1:
+                    self.current_index += 1
+                    self.update_buttons()
+
+                    dialogue_embed = discord.Embed(
+                        title="🗣️",
+                        description=f"{speech_bubble(self.get_current_message(), self.npc_emoji)}"
+                    )
+
+                    await interaction.response.edit_message(embed=dialogue_embed, view=self)
+                else:
+                    await interaction.response.edit_message(view=None)
+
+
+            async def quest_giver(self):
+                rpg_stuff_ref.child(str(user_id)).update({
+                    "current_quest": rpg_lore_quests.get(self.npc_emoji).get(self.location).get(self.quest).get("new_quest_id")
+                })
+
+            async def end_dialogue(self, interaction: discord.Interaction):
+                if interaction.user.id != self.userid:
+                    return await interaction.response.send_message("🗣️❌", ephemeral=True)
+
+                dialogue_embed = discord.Embed(title=f"🗣️", description=speech_bubble(rpg_lore_quests.get(self.npc_emoji).get(self.location).get(self.quest).get("end_line").get(LANG), self.npc_emoji),
+                                               colour=discord.Colour(int('5BC1FF', 16)))
+                await interaction.response.edit_message(
+                    embed=dialogue_embed,
+                    view=None
+                )
+                # in_dialogues.pop(user_id)
+                await self.quest_giver()
+
+            async def on_timeout(self):
+                # in_dialogues.pop(user_id)
+                for item in self.children:
+                    item.disabled = True
+                try:
+                    await self.message.edit(view=self)
+                except:
+                    pass
+
+        class TalkSelect(discord.ui.Select):
+            def __init__(self):
+                npc_list = locations.get(LOCATION).get("npc")
+                options=[
+                    discord.SelectOption(label=npc) for npc in npc_list
+                ]
+                super().__init__(placeholder=locations.get(LOCATION).get("options").get("talk_with").get(LANG), max_values=1, min_values=1, options=options)
+
+
+
+            async def callback(self, interaction: discord.Interaction):
+                if self.values[0] == "🦸" and LOCATION == 1:
+                    dialogue_embed = discord.Embed(title=f"🗣️", description=speech_bubble("...", "🦸"), colour=discord.Colour(int('5BC1FF', 16)))
+                    view = DialogueView(
+                        npc_emoji="🦸",
+                        location=LOCATION,
+                        userid=interaction.user.id
+                    )
+
+                    await interaction.response.edit_message(embed=dialogue_embed, view=view, attachments=[])
+
+
+        class TalkSelectView(discord.ui.View):
+            def __init__(self, *, timeout=180):
+                super().__init__(timeout=timeout)
+                self.add_item(TalkSelect())
+
+
+
+        class RpgSelect(discord.ui.Select):
+            def __init__(self):
+                options=[
+                    discord.SelectOption(label=locations.get(LOCATION).get("options").get("talk").get(LANG))
+                ]
+                super().__init__(placeholder=locations.get(LOCATION).get("options").get("placeholder").get(LANG), max_values=1, min_values=1, options=options)
+
+            async def callback(self, interaction: discord.Interaction):
+                if self.values[0] == locations.get(LOCATION).get("options").get("talk").get(LANG):
+                    await interaction.response.edit_message(embed=embed, view=TalkSelectView())
+
+
+
+        class RpgSelectView(discord.ui.View):
+            def __init__(self, *, timeout=180):
+                super().__init__(timeout=timeout)
+                self.add_item(RpgSelect())
+
+
+        embed = discord.Embed(title=f"{locations.get(LOCATION).get("name").get(LANG)}",colour=discord.Colour(int('5BC1FF', 16)))
+
+        src_dir = Path(__file__).parent.parent
+        file_path = src_dir / "img" / f"{locations.get(LOCATION).get("place_image")}"
+
+        file = discord.File(file_path, "place.png")
+        embed.set_image(url="attachment://place.png")
+        embed.add_field(name="", value=f"{locations.get(LOCATION).get("description").get(LANG)}")
+
+
+        await interaction.response.send_message(embed=embed, view=RpgSelectView(), file=file, ephemeral=True)
 async def setup(client):
     await client.add_cog(RPGCog(client))
